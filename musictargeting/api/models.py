@@ -37,7 +37,7 @@ class Campaign(models.Model):
     owner = models.ForeignKey(User, related_name='campaigns', on_delete=models.CASCADE)
     cabinet_id = models.IntegerField()
     client_id = models.IntegerField(null=True, blank=True)
-    campaign_id = models.IntegerField()
+    campaign_vk_id = models.IntegerField()
     campaign_name = models.CharField(max_length=100)
     campaign_budget = models.IntegerField()
     release_artist = models.CharField(max_length=100)
