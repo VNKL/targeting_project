@@ -1,9 +1,9 @@
+from django.contrib.auth.models import User as DjangoUser
 from django.db import models
 
 
-class User(models.Model):
+class User(DjangoUser):
 
-    username = models.CharField(max_length=30)
     vk_user_id = models.IntegerField()
     vk_token = models.CharField(max_length=100)
 
@@ -22,8 +22,8 @@ class AdsCabinet(models.Model):
     cabinet_type = models.CharField(max_length=6, choices=CABINET_TYPE_CHOICES)
     cabinet_name = models.CharField(max_length=100)
     cabinet_id = models.IntegerField()
-    client_name = models.CharField(max_length=100, blank=True)
-    client_id = models.IntegerField(blank=True)
+    client_name = models.CharField(max_length=100, null=True, blank=True)
+    client_id = models.IntegerField(null=True, blank=True)
 
     def __str__(self):
         if self.client_name:
@@ -36,7 +36,7 @@ class Campaign(models.Model):
 
     owner = models.ForeignKey(User, related_name='campaigns', on_delete=models.CASCADE)
     cabinet_id = models.IntegerField()
-    client_id = models.IntegerField()
+    client_id = models.IntegerField(null=True, blank=True)
     campaign_id = models.IntegerField()
     campaign_name = models.CharField(max_length=100)
     campaign_budget = models.IntegerField()

@@ -50,7 +50,7 @@ class UserView(views.APIView):
 
     def get(self, request):
         user = get_object_or_404(User, username=request.user.username)
-        serializer = UserSerializer(user)
+        serializer = UserSerializer(user, context={'request': request})
         return Response(serializer.data)
 
     def post(self, request):
@@ -65,8 +65,8 @@ class UserView(views.APIView):
 class AdsCabinetListView(views.APIView):
 
     def get(self, request):
-        client_cabinet = get_list_or_404(AdsCabinet, owner=request.user)
-        serializer = AdsCabinetSerializer(client_cabinet, many=True)
+        ads_cabinets = get_list_or_404(AdsCabinet, owner=request.user)
+        serializer = AdsCabinetSerializer(ads_cabinets, many=True)
         return Response(serializer.data)
 
     def post(self, request):

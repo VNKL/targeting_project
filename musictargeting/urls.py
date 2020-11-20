@@ -20,10 +20,10 @@ from musictargeting.api import views as api_views
 
 
 api_router = routers.DefaultRouter()
-api_router.register(r'users', api_views.UserViewSet)
-api_router.register(r'ads_cabinets', api_views.AdsCabinetViewSet)
-api_router.register(r'campaigns', api_views.CampaignViewSet)
-api_router.register(r'ads', api_views.AdViewSet)
+api_router.register(r'users', api_views.UserViewSet, basename='user')
+api_router.register(r'ads_cabinets', api_views.AdsCabinetViewSet, basename='adscabinet')
+api_router.register(r'campaigns', api_views.CampaignViewSet, basename='campaign')
+api_router.register(r'ads', api_views.AdViewSet, basename='ad')
 
 
 # Wire up our API using automatic URL routing.

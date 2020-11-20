@@ -10,7 +10,7 @@ class UserAdmin(admin.ModelAdmin):
 
 @admin.register(models.AdsCabinet)
 class AdsCabinetAdmin(admin.ModelAdmin):
-    list_display = 'owner', 'cabinet_type'
+    list_display = 'owner', 'cabinet_type', 'cabinet_name', 'client_name'
 
 
 @admin.register(models.Campaign)
