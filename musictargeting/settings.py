@@ -128,3 +128,7 @@ REST_FRAMEWORK = {
 
 # VK API version for vk_framework
 VK_API_VERSION = '5.92'
+
+# Production only
+DEV_RUCAPTCHA_KEY = 'b900c2e8222b8f9c116f12e3af17d757'
+DEV_PROXY = 'd1ONTO7Dua:qLR76hxgB7@45.135.177.101:62367'

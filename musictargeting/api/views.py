@@ -8,11 +8,11 @@ from django.http import JsonResponse
 
 from .models import User, AdsCabinet, Campaign, Ad
 from . import serializers
-
 from . import vk_framework
+from ..settings import DEV_RUCAPTCHA_KEY, DEV_PROXY
 
 
-def start_campaign(campaign_settings, request):
+def start_campaign(request, campaign_settings):
     # TODO  Допилить код запуска и сохранения кампании в отдельном процессе
     started_campaign = {}   # Вот сюда что-то должно вернуть все параметры запущенной кампании
     campaign_serializer = serializers.CampaignExtendedSerializer(data=started_campaign)
@@ -21,7 +21,7 @@ def start_campaign(campaign_settings, request):
     # TODO После сохранения кампании нужно насохранять объявлений
 
 
-def api_index_view(response):
+def api_index_view(request):
     return JsonResponse({'detail': 'This is api root page. Use existing methods after api/'},
                         status=status.HTTP_405_METHOD_NOT_ALLOWED)
 
@@ -74,6 +74,8 @@ class AdsCabinetListView(views.APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
+        if request.query_params.get('update_cabinets'):
+            self._update_user_ads_cabinets(request)
         ads_cabinets = get_list_or_404(AdsCabinet, owner=request.user)
         serializer = serializers.AdsCabinetSerializer(ads_cabinets, many=True)
         return Response(serializer.data)
@@ -85,6 +87,32 @@ class AdsCabinetListView(views.APIView):
             return Response(serializer.data)
         else:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    @staticmethod
+    def _update_user_ads_cabinets(request):
+        user = get_object_or_404(User, username=request.user.username)
+        if user:
+            vk = vk_framework.VkTools(token=user.vk_token, rucaptcha_key=DEV_RUCAPTCHA_KEY, proxy=DEV_PROXY)
+            ads_cabinets = vk.get_all_ads_cabinets()
+
+            if ads_cabinets['user_cabinets']:
+                for cab in ads_cabinets['user_cabinets']:
+                    cabinet = AdsCabinet(owner=user,
+                                         cabinet_type='user',
+                                         cabinet_name=cab['cabinet_name'],
+                                         cabinet_id=cab['cabinet_id'])
+                    cabinet.save()
+
+            if ads_cabinets['client_cabinets']:
+                for cab in ads_cabinets['client_cabinets']:
+                    cabinet = AdsCabinet(owner=user,
+                                         cabinet_type='user',
+                                         cabinet_name=cab['cabinet_name'],
+                                         cabinet_id=cab['cabinet_id'],
+                                         client_name=cab['client_name'],
+                                         client_id=cab['client_id'])
+                    cabinet.save()
+
 
 
 class CampaignListView(views.APIView):
@@ -101,7 +129,7 @@ class CampaignListView(views.APIView):
     def post(self, request):
         campaign_settings_serializer = serializers.CampaignSettingsSerializer(data=request.data)
         if campaign_settings_serializer.is_valid():
-            start_campaign(campaign_settings_serializer.data, request)
+            start_campaign(request, campaign_settings_serializer.data)
             return Response({'response': 'campaign is starting, it takes some time'})
         else:
             return Response(campaign_settings_serializer.errors, status=status.HTTP_400_BAD_REQUEST)

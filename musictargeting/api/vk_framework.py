@@ -460,7 +460,7 @@ class VkAPI:
                 cabinet_id = list(cabinets.keys())[0]
                 self.ads.cabinet_id = cabinet_id
             else:
-                print(f'WARNING \t|\t no selected ads cabinets on token: {token}')
+                print(f'VK FRAMEWORK WARNING \t|\t no selected ads cabinets on token: {token}')
 
     def get_full_ads_stat(self, ads):
         """
