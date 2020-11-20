@@ -125,3 +125,6 @@ REST_FRAMEWORK = {
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 10
 }
+
+# VK API version for vk_framework
+VK_API_VERSION = '5.92'

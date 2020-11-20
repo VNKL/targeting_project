@@ -1,11 +1,15 @@
+import json
 from django.http import HttpResponse
+from django.shortcuts import get_object_or_404, get_list_or_404
 from rest_framework import viewsets, views, status
 from rest_framework import permissions
-from django.shortcuts import get_object_or_404, get_list_or_404
 from rest_framework.response import Response
+from django.http import JsonResponse
 
 from .models import User, AdsCabinet, Campaign, Ad
 from . import serializers
+
+from . import vk_framework
 
 
 def start_campaign(campaign_settings, request):
@@ -18,7 +22,8 @@ def start_campaign(campaign_settings, request):
 
 
 def api_index_view(response):
-    return HttpResponse('This is api root page. Use method names after "api/"')
+    return JsonResponse({'detail': 'This is api root page. Use existing methods after api/'},
+                        status=status.HTTP_405_METHOD_NOT_ALLOWED)
 
 
 class UserViewSet(viewsets.ModelViewSet):
@@ -85,12 +90,32 @@ class AdsCabinetListView(views.APIView):
 class CampaignListView(views.APIView):
     permission_classes = [permissions.IsAuthenticated]
 
-    def get(self, requset):
-        campaign = get_list_or_404(Campaign, owner=requset.user)
-        if requset.query_params.get('extended'):
-            serializer = serializers.CampaignExtendedSerializer(campaign, many=True)
+    def get(self, request):
+        campaigns = get_list_or_404(Campaign, owner=request.user)
+        if request.query_params.get('extended'):
+            serializer = serializers.CampaignExtendedSerializer(campaigns, many=True)
         else:
-            serializer = serializers.CampaignSerializer(campaign, many=True)
+            serializer = serializers.CampaignSerializer(campaigns, many=True)
+        return Response(serializer.data)
+
+    def post(self, request):
+        campaign_settings_serializer = serializers.CampaignSettingsSerializer(data=request.data)
+        if campaign_settings_serializer.is_valid():
+            start_campaign(campaign_settings_serializer.data, request)
+            return Response({'response': 'campaign is starting, it takes some time'})
+        else:
+            return Response(campaign_settings_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class CampaignDetailView(views.APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, campaign_vk_id):
+        campaign = get_object_or_404(Campaign, owner=request.user, campaign_vk_id=campaign_vk_id)
+        if request.query_params.get('extended'):
+            serializer = serializers.CampaignExtendedSerializer(campaign)
+        else:
+            serializer = serializers.CampaignSerializer(campaign)
         return Response(serializer.data)
 
     def post(self, request):
