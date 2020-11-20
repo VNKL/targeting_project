@@ -106,13 +106,12 @@ class AdsCabinetListView(views.APIView):
             if ads_cabinets['client_cabinets']:
                 for cab in ads_cabinets['client_cabinets']:
                     cabinet = AdsCabinet(owner=user,
-                                         cabinet_type='user',
+                                         cabinet_type='agency',
                                          cabinet_name=cab['cabinet_name'],
                                          cabinet_id=cab['cabinet_id'],
                                          client_name=cab['client_name'],
                                          client_id=cab['client_id'])
                     cabinet.save()
-
 
 
 class CampaignListView(views.APIView):
