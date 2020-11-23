@@ -3,7 +3,9 @@
 import sys
 import os
 import django
-os.environ.setdefault("DJANGO_SETTINGS_MODULE", "CookingBase.settings")
+
+
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "musictargeting.settings")
 django.setup()
 
 

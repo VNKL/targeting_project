@@ -51,3 +51,10 @@ class CampaignSettingsSerializer(serializers.ModelSerializer):
     class Meta:
         model = CampaignSettings
         fields = '__all__'
+
+
+class GroupSerializer(serializers.Serializer):
+
+    group_name = serializers.CharField()
+    group_id = serializers.IntegerField()
+    ava_url = serializers.CharField()

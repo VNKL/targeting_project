@@ -133,7 +133,7 @@ class CampaignListView(views.APIView):
             process.start()
             # call_command('start_campaign', f'-pk={campaign.pk}')
 
-            return Response({'response': 'campaign is starting, it takes some time'})
+            return Response({'detail': 'campaign is starting, it takes some time'})
         else:
             return Response(campaign_settings_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -154,7 +154,7 @@ class CampaignDetailView(views.APIView):
         if campaign_settings_serializer.is_valid():
             campaign = campaign_settings_serializer.save()
             call_command('start_campaign', f'--pk={campaign.pk}')
-            return Response({'response': 'campaign is starting, it takes some time'})
+            return Response({'detail': 'campaign is starting, it takes some time'})
         else:
             return Response(campaign_settings_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -173,3 +173,18 @@ class AdListView(views.APIView):
         ads = get_list_or_404(Ad, campaign_vk_id=campaign_vk_id)
         serializer = serializers.AdSerializer(ads, many=True)
         return Response(serializer.data)
+
+
+class GroupListView(views.APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        user = get_object_or_404(User, username=request.user.username)
+        if user:
+            vk = vk_framework.VkTools(token=user.vk_token, rucaptcha_key=DEV_RUCAPTCHA_KEY, proxy=DEV_PROXY)
+            groups = vk.get_groups()
+            serializer = serializers.GroupSerializer(groups, many=True)
+            return Response(serializer.data)
+
+
+
