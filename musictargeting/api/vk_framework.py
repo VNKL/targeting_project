@@ -449,19 +449,6 @@ class VkAPI:
         self.ads = VkAds(token, rucaptcha_key, ads_cabinet_id, proxy, ads_client_id)
         self.artist_cards = VkArtistCards(token, rucaptcha_key, proxy)
 
-        # Проверка на переданный айди рекламного кабинета
-        self.__check_ads_cabinet_id__(ads_cabinet_id, token)
-
-    def __check_ads_cabinet_id__(self, cabinet_id, token):
-
-        if not cabinet_id:
-            cabinets = self.tools.get_ads_cabinets()
-            if len(cabinets) == 1:
-                cabinet_id = list(cabinets.keys())[0]
-                self.ads.cabinet_id = cabinet_id
-            else:
-                print(f'VK FRAMEWORK WARNING \t|\t no selected ads cabinets on token: {token}')
-
     def get_full_ads_stat(self, ads):
         """
         Возвращает дикт с полной статой по объявлениям

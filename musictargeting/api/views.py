@@ -92,9 +92,14 @@ class AdsCabinetListView(views.APIView):
     def _update_user_ads_cabinets(request):
         user = get_object_or_404(User, username=request.user.username)
         if user:
+            # Получение актуальных кабинетов
             vk = vk_framework.VkTools(token=user.vk_token, rucaptcha_key=DEV_RUCAPTCHA_KEY, proxy=DEV_PROXY)
             ads_cabinets = vk.get_all_ads_cabinets()
 
+            # Удаление предыдущих объектов кабинетов
+            AdsCabinet.objects.all().filter(owner=user).delete()
+
+            # Создание и сохранений новых объектов кабинетов
             if ads_cabinets['user_cabinets']:
                 for cab in ads_cabinets['user_cabinets']:
                     cabinet = AdsCabinet(owner=user,
@@ -102,7 +107,6 @@ class AdsCabinetListView(views.APIView):
                                          cabinet_name=cab['cabinet_name'],
                                          cabinet_id=cab['cabinet_id'])
                     cabinet.save()
-
             if ads_cabinets['client_cabinets']:
                 for cab in ads_cabinets['client_cabinets']:
                     cabinet = AdsCabinet(owner=user,
