@@ -63,7 +63,7 @@ class Ad(models.Model):
     campaign_name = models.CharField(max_length=100)
     campaign_vk_id = models.IntegerField()
     ad_name = models.CharField(max_length=100)
-    ad_id = models.IntegerField()
+    ad_vk_id = models.IntegerField()
     playlist_url = models.CharField(max_length=100)
     spent = models.FloatField(default=0.0)
     reach = models.IntegerField(default=0)
@@ -79,18 +79,18 @@ class Ad(models.Model):
 class CampaignSettings(models.Model):
 
     AGE_DISCLAIMER_CHOICES = [[1, '0+'], [2, '6+'], [3, '12+'], [4, '16+'], [5, '18+']]
-    SEX_FILTER_CHOICES = [[0, 'Любой'], [1, 'Мужской'], [2, 'Женский']]
+    SEX_FILTER_CHOICES = [['', 'Любой'], ['male', 'Мужской'], ['female', 'Женский']]
     AGE_CHOICES = [[0, 'Любой']] + [[x, str(x)] for x in range(14, 80)]
 
     owner = models.ForeignKey(User, related_name='campaigns_settings', on_delete=models.CASCADE)
-    ads_cabinet_id = models.IntegerField()
-    ads_client_id = models.IntegerField(default=0)
+    cabinet_id = models.IntegerField()
+    client_id = models.IntegerField(default=0)
     release_url = models.CharField(max_length=100)
     post_text = models.TextField()
     group_id = models.IntegerField()
     budget = models.IntegerField()
     musician_names = models.TextField(blank=True)
-    sex_filter = models.IntegerField(choices=SEX_FILTER_CHOICES, default=1)
+    sex_filter = models.CharField(max_length=6, choices=SEX_FILTER_CHOICES, default='')
     age_disclaimer = models.IntegerField(choices=AGE_DISCLAIMER_CHOICES, default=5)
     age_from = models.IntegerField(choices=AGE_CHOICES, default=0)
     age_to = models.IntegerField(choices=AGE_CHOICES, default=0)

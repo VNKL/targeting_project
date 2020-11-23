@@ -22,8 +22,8 @@ class CampaignExtendedSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Campaign
-        fields = 'campaign_name', 'campaign_vk_id', 'campaign_budget', 'spent', 'listens', 'reach', 'clicks', \
-                 'subscribes', 'release_cover_url', 'create_datetime', 'ads'
+        fields = 'cabinet_id', 'client_id', 'campaign_name', 'campaign_vk_id', 'campaign_budget', 'spent', \
+                 'listens', 'reach', 'clicks', 'subscribes', 'release_cover_url', 'create_datetime', 'ads'
 
 
 class AdsCabinetSerializer(serializers.ModelSerializer):
@@ -50,3 +50,4 @@ class UserExtendedSerializer(serializers.ModelSerializer):
 class CampaignSettingsSerializer(serializers.ModelSerializer):
     class Meta:
         model = CampaignSettings
+        fields = '__all__'

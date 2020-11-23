@@ -515,25 +515,25 @@ class VkAPI:
                                   age_from=age_from, age_to=age_to, age_disclaimer=age_disclaimer,
                                   sex_filter=sex_filter, impressions_limit=impressions_limit)
 
-        # Собираем всю инфу по созданной кампании в дикт
         campaign = {
             'cabinet_id': self.ads.cabinet_id,
             'client_id': self.ads.client_id,
-            'campaign_id': campaign_id,
+            'campaign_vk_id': campaign_id,
             'campaign_name': f"{release['artist_name']} / {release['title']}",
             'campaign_budget': campaign_budget,
             'release_artist': release['artist_name'],
             'release_title': release['title'],
-            'release_object': release,
+            'release_cover_url': release['cover_url'],
+            # 'release_object': release,
             'artist_group_id': artist_group_id,
             'playlists_group_id': int(playlist_urls[0][28:].split('_')[0]),
-            'musicians': musicians,
-            'dark_posts': dark_posts,
-            'age_from': age_from,
-            'age_to': age_to,
-            'age_disclaimer': age_disclaimer,
-            'sex_filter': sex_filter,
-            'impressions_limit': impressions_limit,
+            # 'musicians': musicians,
+            # 'dark_posts': dark_posts,
+            # 'age_from': age_from,
+            # 'age_to': age_to,
+            # 'age_disclaimer': age_disclaimer,
+            # 'sex_filter': sex_filter,
+            # 'impressions_limit': impressions_limit,
             'ads': ads
         }
 
@@ -991,7 +991,7 @@ class VkAds:
         :param impressions_limit:       int, ограничение по показам на одного человека (1, 2, 3, 5, 10, 15, 20)
         :param retarget:                dict, {retarget_name: retarget_id}
         :param musicians:               dict, {musician_name: musician_id}
-        :return:                        dict, {ad_id: playlist_url}
+        :return:                        list, [{'ad_name': str, 'ad_vk_id': int, 'playlist_url': str}, ...]
         """
         # Достаем ссылки на посты из диктса с постами и плейлистами
         post_urls = list(posts.keys())
@@ -1002,7 +1002,7 @@ class VkAds:
 
         # Если переданы музыканты
         if musicians:
-            created_ads = {}
+            created_ads = []
             for n, (musician_name, musician_id) in enumerate(musicians.items()):
                 ad_name = f'{musician_name} (слушатели)'
                 data = _data_for_ads(ad_name=ad_name, campaign_id=campaign_id, post_url=post_urls[n],
@@ -1012,13 +1012,16 @@ class VkAds:
                 created_ads_response = self._api_response('ads.createAds', {'data': data})
                 if created_ads_response:
                     ad_id = created_ads_response[0]['id']
-                    created_ads[int(ad_id)] = posts[post_urls[n]]
+                    # created_ads[int(ad_id)] = posts[post_urls[n]]
+                    created_ads.append({'ad_name': ad_name,
+                                        'ad_vk_id': int(ad_id),
+                                        'playlist_url': posts[post_urls[n]]})
                 sleep(uniform(2.9, 3.1))
             return created_ads
 
         # Если переданы базы ретаргета
         elif retarget:
-            created_ads = {}
+            created_ads = []
             for n, (retarget_name, retarget_id) in enumerate(retarget.items()):
                 data = _data_for_ads(ad_name=retarget_name, campaign_id=campaign_id, post_url=post_urls[n],
                                      music_interest_filter=music_interest_filter, musician_id=None,
@@ -1028,7 +1031,10 @@ class VkAds:
                 created_ads_response = self._api_response('ads.createAds', {'data': data})
                 if created_ads_response:
                     ad_id = created_ads_response[0]['id']
-                    created_ads[int(ad_id)] = posts[post_urls[n]]
+                    # created_ads[int(ad_id)] = posts[post_urls[n]]
+                    created_ads.append({'ad_name': retarget_name,
+                                        'ad_vk_id': int(ad_id),
+                                        'playlist_url': posts[post_urls[n]]})
                 sleep(uniform(2.9, 3.1))
             return created_ads
 

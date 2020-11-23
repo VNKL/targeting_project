@@ -5,20 +5,13 @@ from rest_framework import viewsets, views, status
 from rest_framework import permissions
 from rest_framework.response import Response
 from django.http import JsonResponse
+from django.core.management import call_command
+from multiprocessing import Process
 
 from .models import User, AdsCabinet, Campaign, Ad
 from . import serializers
 from . import vk_framework
 from ..settings import DEV_RUCAPTCHA_KEY, DEV_PROXY
-
-
-def start_campaign(request, campaign_settings):
-    # TODO  Допилить код запуска и сохранения кампании в отдельном процессе
-    started_campaign = {}   # Вот сюда что-то должно вернуть все параметры запущенной кампании
-    campaign_serializer = serializers.CampaignExtendedSerializer(data=started_campaign)
-    if campaign_serializer.is_valid():
-        campaign_serializer.save()
-    # TODO После сохранения кампании нужно насохранять объявлений
 
 
 def api_index_view(request):
@@ -130,9 +123,16 @@ class CampaignListView(views.APIView):
         return Response(serializer.data)
 
     def post(self, request):
-        campaign_settings_serializer = serializers.CampaignSettingsSerializer(data=request.data)
+        request_data = request.data
+        request_data.update({'owner': request.user})
+        campaign_settings_serializer = serializers.CampaignSettingsSerializer(data=request_data)
         if campaign_settings_serializer.is_valid():
-            start_campaign(request, campaign_settings_serializer.data)
+            campaign = campaign_settings_serializer.save()
+
+            process = Process(target=call_command, args=('start_campaign', f'-pk={campaign.pk}',))
+            process.start()
+            # call_command('start_campaign', f'-pk={campaign.pk}')
+
             return Response({'response': 'campaign is starting, it takes some time'})
         else:
             return Response(campaign_settings_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -152,7 +152,8 @@ class CampaignDetailView(views.APIView):
     def post(self, request):
         campaign_settings_serializer = serializers.CampaignSettingsSerializer(data=request.data)
         if campaign_settings_serializer.is_valid():
-            start_campaign(campaign_settings_serializer.data, request)
+            campaign = campaign_settings_serializer.save()
+            call_command('start_campaign', f'--pk={campaign.pk}')
             return Response({'response': 'campaign is starting, it takes some time'})
         else:
             return Response(campaign_settings_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
