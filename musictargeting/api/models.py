@@ -11,14 +11,14 @@ class User(DjangoUser):
         return f'User "{self.username}"'
 
 
-class AdsCabinet(models.Model):
+class Cabinet(models.Model):
 
     CABINET_TYPE_CHOICES = [
         ['user', 'Пользовательский кабинет'],
         ['agency', 'Клиент в кабинете агентства']
     ]
 
-    owner = models.ForeignKey(User, related_name='ads_cabinets', on_delete=models.CASCADE)
+    owner = models.ForeignKey(User, related_name='cabinets', on_delete=models.CASCADE)
     cabinet_type = models.CharField(max_length=6, choices=CABINET_TYPE_CHOICES)
     cabinet_name = models.CharField(max_length=100)
     cabinet_vk_id = models.IntegerField()
@@ -99,7 +99,7 @@ class CampaignSettings(models.Model):
 
 class Retarget(models.Model):
 
-    cabinet = models.ForeignKey(AdsCabinet, related_name='retarget', on_delete=models.CASCADE)
+    cabinet = models.ForeignKey(Cabinet, related_name='retarget', on_delete=models.CASCADE)
     cabinet_vk_id = models.IntegerField(default=None)
     client_vk_id = models.IntegerField(default=None, blank=True, null=True)
     retarget_name = models.CharField(max_length=100)

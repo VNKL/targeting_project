@@ -42,8 +42,8 @@ def _start_campaign_in_vk(campaign_settings, user):
     vk = vk_framework.VkAPI(token=user.vk_token,
                             rucaptcha_key=DEV_RUCAPTCHA_KEY,
                             proxy=DEV_PROXY,
-                            ads_cabinet_id=campaign_settings['cabinet_id'],
-                            ads_client_id=campaign_settings['client_id'])
+                            ads_cabinet_id=campaign_settings['cabinet_vk_id'],
+                            ads_client_id=campaign_settings['client_vk_id'])
     # Запуск кампании в VK
     campaign = vk.start_new_campaign(release_url=campaign_settings['release_url'],
                                      artist_group_id=campaign_settings['group_id'],

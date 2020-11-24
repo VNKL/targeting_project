@@ -2,7 +2,7 @@ from abc import ABC
 
 from rest_framework import serializers
 
-from .models import User, AdsCabinet, Campaign, Ad, CampaignSettings, Retarget
+from .models import User, Cabinet, Campaign, Ad, CampaignSettings, Retarget
 
 
 class AdSerializer(serializers.ModelSerializer):
@@ -34,17 +34,17 @@ class RetargetSerializer(serializers.ModelSerializer):
         fields = 'retarget_name', 'retarget_vk_id', 'audience_count'
 
 
-class AdsCabinetSerializer(serializers.ModelSerializer):
+class CabinetSerializer(serializers.ModelSerializer):
     class Meta:
-        model = AdsCabinet
+        model = Cabinet
         fields = 'cabinet_type', 'cabinet_vk_id', 'cabinet_name', 'client_vk_id', 'client_name'
 
 
-class AdsCabinetExtendedSerializer(serializers.ModelSerializer):
+class CabinetExtendedSerializer(serializers.ModelSerializer):
     retarget = RetargetSerializer(many=True)
 
     class Meta:
-        model = AdsCabinet
+        model = Cabinet
         fields = 'cabinet_type', 'cabinet_vk_id', 'cabinet_name', 'client_vk_id', 'client_name', 'retarget'
 
 
@@ -55,12 +55,12 @@ class UserSerializer(serializers.ModelSerializer):
 
 
 class UserExtendedSerializer(serializers.ModelSerializer):
-    ads_cabinets = AdsCabinetSerializer(many=True)
-    campaigns = CampaignExtendedSerializer(many=True)
+    cabinets = CabinetSerializer(many=True)
+    campaigns = CampaignSerializer(many=True)
 
     class Meta:
         model = User
-        fields = 'username', 'vk_user_id', 'vk_token', 'ads_cabinets', 'campaigns'
+        fields = 'username', 'vk_user_id', 'vk_token', 'cabinets', 'campaigns'
 
 
 class CampaignSettingsSerializer(serializers.ModelSerializer):

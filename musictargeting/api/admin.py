@@ -8,7 +8,7 @@ class UserAdmin(admin.ModelAdmin):
     list_display = 'username', 'vk_user_id'
 
 
-@admin.register(models.AdsCabinet)
+@admin.register(models.Cabinet)
 class AdsCabinetAdmin(admin.ModelAdmin):
     list_display = 'owner', 'cabinet_type', 'cabinet_name', 'client_name'
 

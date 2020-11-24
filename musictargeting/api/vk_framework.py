@@ -516,8 +516,8 @@ class VkAPI:
                                   sex_filter=sex_filter, impressions_limit=impressions_limit)
 
         campaign = {
-            'cabinet_id': self.ads.cabinet_id,
-            'client_id': self.ads.client_id,
+            'cabinet_vk_id': self.ads.cabinet_id,
+            'client_vk_id': self.ads.client_id,
             'campaign_vk_id': campaign_id,
             'campaign_name': f"{release['artist_name']} / {release['title']}",
             'campaign_budget': campaign_budget,

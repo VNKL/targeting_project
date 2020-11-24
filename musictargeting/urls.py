@@ -21,7 +21,7 @@ from musictargeting.api import views as api_views
 
 api_router = routers.DefaultRouter()
 api_router.register(r'users', api_views.UserViewSet, basename='user')
-api_router.register(r'ads_cabinets', api_views.AdsCabinetViewSet, basename='adscabinet')
+api_router.register(r'ads_cabinets', api_views.CabinetViewSet, basename='adscabinet')
 api_router.register(r'campaigns', api_views.CampaignViewSet, basename='campaign')
 api_router.register(r'ads', api_views.AdViewSet, basename='ad')
 
