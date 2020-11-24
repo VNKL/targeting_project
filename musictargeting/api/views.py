@@ -146,6 +146,9 @@ class CampaignDetailView(views.APIView):
         campaign = get_object_or_404(Campaign, owner=request.user, campaign_vk_id=campaign_vk_id)
         if request.query_params.get('extended'):
             serializer = serializers.CampaignExtendedSerializer(campaign)
+        elif request.query_params.get('update'):
+            campaign = self._update_campaign_stats(campaign, campaign_vk_id, request)
+            serializer = serializers.CampaignExtendedSerializer(campaign)
         else:
             serializer = serializers.CampaignSerializer(campaign)
         return Response(serializer.data)
@@ -158,6 +161,69 @@ class CampaignDetailView(views.APIView):
             return Response({'info': 'campaign is starting, it takes some time'})
         else:
             return Response(campaign_settings_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    @staticmethod
+    def _update_campaign_stats(campaign, campaign_vk_id, request):
+        # Получение юзера, чтобы взять его вк токен
+        user = get_object_or_404(User, username=request.user.username)
+
+        # Получение объявлений кампании и рефакторинг их для ВК фреймворка
+        ads = get_list_or_404(Ad, campaign_vk_id=campaign_vk_id)
+        ads_for_vk_framework = {ad.ad_vk_id: ad.playlist_url for ad in list(ads)}
+
+        # Получение статы объявлений
+        vk = vk_framework.VkAPI(token=user.vk_token, rucaptcha_key=DEV_RUCAPTCHA_KEY, proxy=DEV_PROXY,
+                                ads_cabinet_id=campaign.cabinet_vk_id, ads_client_id=campaign.client_vk_id)
+        ads_stat = vk.get_full_ads_stat(ads=ads_for_vk_framework)
+
+        # Обновление объектов объявлений
+        updated_campaign_stat = CampaignDetailView._update_ads_objects(ads, ads_stat)
+
+        # Обновление статы в кампании и сохранение обновленной кампании в БД
+        updated_campaign = CampaignDetailView._update_campaign_object(campaign, updated_campaign_stat)
+
+        return updated_campaign
+
+    @staticmethod
+    def _update_campaign_object(campaign, updated_campaign_stat):
+        campaign.spent = updated_campaign_stat['spent']
+        campaign.listens = updated_campaign_stat['listens']
+        campaign.listens = updated_campaign_stat['reach']
+        campaign.listens = updated_campaign_stat['clicks']
+        campaign.listens = updated_campaign_stat['subscribes']
+
+        reach = updated_campaign_stat['reach']
+        listens = updated_campaign_stat['listens']
+
+        campaign.cpm = updated_campaign_stat['spent'] / (reach / 1000) if reach else 0
+        campaign.cpl = updated_campaign_stat['spent'] / listens if listens else 0
+        campaign.save()
+        return campaign
+
+    @staticmethod
+    def _update_ads_objects(ads, ads_stat):
+        updated_ad_objects = []
+        updated_campaign_stat = {'spent': 0, 'listens': 0, 'reach': 0, 'clicks': 0, 'subscribes': 0}
+        for ad in list(ads):
+            # Если был охват (если он не ноль)
+            if ads_stat[ad.ad_vk_id]['reach']:
+
+                # Обновление статы в объектах объявлений
+                ad.spent = ads_stat[ad.ad_vk_id]['spent']
+                ad.reach = ads_stat[ad.ad_vk_id]['reach'],
+                ad.cpm = ads_stat[ad.ad_vk_id]['cpm'],
+                ad.clicks = ads_stat[ad.ad_vk_id]['clicks'],
+                ad.subscribes = ads_stat[ad.ad_vk_id]['subscribes'],
+                ad.listens = ads_stat[ad.ad_vk_id]['listens']
+                updated_ad_objects.append(ad)
+
+                # Обновление средней статы кампании
+                for param in updated_campaign_stat.keys():
+                    updated_campaign_stat[param] += ads_stat[ad.ad_vk_id][param]
+
+        # Сохранение обновленных объектво объявлений в БД
+        Ad.objects.bulk_update(updated_ad_objects, ['spent', 'reach', 'cpm', 'clicks', 'subscribes', 'listens'])
+        return updated_campaign_stat
 
 
 class AdListView(views.APIView):

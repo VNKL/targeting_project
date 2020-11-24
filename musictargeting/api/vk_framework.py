@@ -203,40 +203,27 @@ def _get_playlist_params_from_url(playlist_url):
     return owner_id, playlist_id, access_key
 
 
-def _ads_stat_unpack(ads, stat_response):
+def _ads_stat_unpack(stat_response):
     """
     Возвращает разобранный объект со статой объявлений, ставит нули там, где статы еще нет
 
     :param ads:             dist, дикт с объявлениями из VkAds.get_ads()
     :param stat_response:   dict, разобранный из JSON объект ВК со статой объявлений
-    :return:                dict, {ad_id: {'name': , 'spent': , 'reach': , 'cpm': , 'clicks': , 'join_rate': }}
+    :return:                dict, {ad_id: {'spent': , 'reach': , 'cpm': , 'clicks': , 'subscribes': }}
     """
     ads_stats = {}
-    for i in stat_response:
-        if i['stats']:
-            cpm = float(ads[i['id']]['cpm']) / 100
-            try:
-                ads_stats[i['id']] = {'name': ads[i['id']]['name'],
-                                      'spent': float(i['stats'][0]['spent']),
-                                      'reach': int(i['stats'][0]['impressions']),
-                                      'cpm': cpm,
-                                      'clicks': int(i['stats'][0]['clicks']),
-                                      'subscribes': i['stats'][0]['join_rate']}
-            except KeyError:
-                ads_stats[i['id']] = {'name': ads[i['id']]['name'],
-                                      'spent': 0.0,
-                                      'reach': 0.0,
-                                      'cpm': cpm,
-                                      'clicks': 0,
-                                      'subscribes': 0}
+    for ad in stat_response:
+        if ad['stats']:
+            spent = float(ad['stats'][0]['spent'])
+            reach = int(ad['stats'][0]['impressions'])
+            cpm = round((spent / (reach / 1000)), 2)
+            clicks = int(ad['stats'][0]['clicks'])
+            subscribes = int(ad['stats'][0]['subscribes'])
+            ads_stats[ad['id']] = {'spent': spent, 'reach': reach, 'cpm': cpm,
+                                   'clicks': clicks, 'subscribes': subscribes}
         else:
-            cpm = float(ads[i['id']]['cpm']) / 100
-            ads_stats[i['id']] = {'name': ads[i['id']]['name'],
-                                  'spent': 0,
-                                  'reach': 0,
-                                  'cpm': cpm,
-                                  'clicks': 0,
-                                  'subscribes': 0}
+            ads_stats[ad['id']] = {'spent': 0, 'reach': 0, 'cpm': 0, 'clicks': 0, 'subscribes': 0}
+
     return ads_stats
 
 
@@ -454,8 +441,7 @@ class VkAPI:
         Возвращает дикт с полной статой по объявлениям
 
         :param ads:     dict, {ad_id: playlist_url}
-        :return:        {ad_id: {'name': str,           - название объявления
-                                 'spent': float,        - потраченный бюджет
+        :return:        {ad_id: {'spent': float,        - потраченный бюджет
                                  'reach': int,          - показы объявления
                                  'cpm': cpm,            - текущий СРМ
                                  'clicks': int          - переходы в паблик и по ссылкам
@@ -472,11 +458,11 @@ class VkAPI:
         ad_stats = self.ads.get_ads_stat(ads=ads)
 
         # Объединяем стату объявлений и плейлистов
-        full_ad_stats = ad_stats.copy()
         for ad_id, playlist_url in ads.items():
-            full_ad_stats[ad_id].update(playlist_stats[playlist_url])
+            ad_stats[ad_id].update({'listens': playlist_stats[playlist_url]['listens'],
+                                    'followers': playlist_stats[playlist_url]['followers']})
 
-        return full_ad_stats
+        return ad_stats
 
     def start_new_campaign(self, release_url, artist_group_id, post_text, campaign_budget, artist_names=None,
                            sex_filter=None, age_disclaimer='0+', age_from=0, age_to=0, impressions_limit=1,
@@ -892,7 +878,7 @@ class VkAds:
 
         :param campaign_id:     int, айди кампании
         :param ads:             dict or list, {ad_id: playlist_url} or [ad_id, ad_id, ...]
-        :return:                dict, {ad_id: {'name': , 'spent': , 'reach': , 'cpm': , 'clicks': , 'subscribes': }}
+        :return:                dict, {ad_id: {'spent': , 'reach': , 'cpm': , 'clicks': , 'subscribes': }}
         """
         if campaign_id:
             # Получаем объект объявлений из переданной кампании
@@ -912,7 +898,7 @@ class VkAds:
         stat_response = self._api_response('ads.getStatistics', api_method_params)
 
         # Распаковываем стату объявлений в удобный для себя дикт
-        ads_stat = _ads_stat_unpack(ads=ads, stat_response=stat_response)
+        ads_stat = _ads_stat_unpack(stat_response=stat_response)
 
         return ads_stat
 

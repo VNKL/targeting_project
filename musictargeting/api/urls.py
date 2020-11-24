@@ -11,6 +11,6 @@ urlpatterns = [
     path('cabinets/', api_views.CabinetListView.as_view()),
     path('retarget/', api_views.RetargetListView.as_view()),
     path('campaigns/', api_views.CampaignListView.as_view()),
-    path('campaigns/<int:campaign_vk_id>', api_views.CampaignDetailView.as_view()),
+    path('campaigns/<int:campaign_vk_id>/', api_views.CampaignDetailView.as_view()),
     path('ads/', api_views.AdListView.as_view()),
 ]

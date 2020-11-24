@@ -8,15 +8,15 @@ from .models import User, Cabinet, Campaign, Ad, CampaignSettings, Retarget
 class AdSerializer(serializers.ModelSerializer):
     class Meta:
         model = Ad
-        fields = 'ad_name', 'spent', 'reach', 'cpm', 'clicks', 'subscribes', 'listens'
+        fields = 'ad_name', 'spent', 'listens', 'cpl', 'reach', 'cpm', 'clicks', 'subscribes'
 
 
 class CampaignSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Campaign
-        fields = 'campaign_name', 'campaign_vk_id', 'campaign_budget', 'spent', 'listens', 'reach', 'clicks', \
-                 'subscribes', 'release_cover_url', 'create_datetime'
+        fields = 'campaign_name', 'campaign_vk_id', 'campaign_budget', 'spent', 'listens', 'cpl', 'reach', 'cpm', \
+                 'clicks', 'subscribes', 'release_cover_url', 'create_datetime'
 
 
 class CampaignExtendedSerializer(serializers.ModelSerializer):
@@ -25,7 +25,7 @@ class CampaignExtendedSerializer(serializers.ModelSerializer):
     class Meta:
         model = Campaign
         fields = 'cabinet_vk_id', 'client_vk_id', 'campaign_name', 'campaign_vk_id', 'campaign_budget', 'spent', \
-                 'listens', 'reach', 'clicks', 'subscribes', 'release_cover_url', 'create_datetime', 'ads'
+                 'listens', 'cpl', 'reach', 'cpm', 'clicks', 'subscribes', 'release_cover_url', 'create_datetime', 'ads'
 
 
 class RetargetSerializer(serializers.ModelSerializer):
