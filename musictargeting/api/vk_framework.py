@@ -959,14 +959,18 @@ class VkAds:
         Возвращает дикт с названиями баз ретагрегта и их айди
 
         :param minimal_size:    int, минимальный размер базы ретаргета, ниже которого база не берется
-        :return:                dict, {retarget_name: retarget_id}
+        :return:                dict, [{'retarget_name': str, 'retarget_id': int}, ...]
         """
         retarget_response = self._api_response('ads.getTargetGroups')
+        if not retarget_response:
+            return None
 
-        retarget = {}
+        retarget = []
         for n, base in enumerate(retarget_response):
             if base['audience_count'] >= minimal_size:
-                retarget[base['name']] = base['id']
+                retarget.append({'retarget_name': base['name'],
+                                 'retarget_id': int(base['id']),
+                                 'audience_count': int(base['audience_count'])})
                 if n == 99:     # Апи не работает, если используется более 100 баз ретаргета
                     return retarget
 
@@ -1022,17 +1026,17 @@ class VkAds:
         # Если переданы базы ретаргета
         elif retarget:
             created_ads = []
-            for n, (retarget_name, retarget_id) in enumerate(retarget.items()):
-                data = _data_for_ads(ad_name=retarget_name, campaign_id=campaign_id, post_url=post_urls[n],
-                                     music_interest_filter=music_interest_filter, musician_id=None,
-                                     retarget_base_id=retarget_id, age_from=age_from, age_to=age_to,
-                                     age_disclaimer=age_disclaimer, impressions_limit=impressions_limit,
-                                     sex_filter=sex_filter)
+            for n, retarget_item in enumerate(retarget):
+                data = _data_for_ads(ad_name=retarget_item['retarget_name'], campaign_id=campaign_id,
+                                     post_url=post_urls[n], music_interest_filter=music_interest_filter,
+                                     musician_id=None, retarget_base_id=retarget_item['retarget_id'],
+                                     age_from=age_from, age_to=age_to, age_disclaimer=age_disclaimer,
+                                     impressions_limit=impressions_limit, sex_filter=sex_filter)
                 created_ads_response = self._api_response('ads.createAds', {'data': data})
                 if created_ads_response:
                     ad_id = created_ads_response[0]['id']
                     # created_ads[int(ad_id)] = posts[post_urls[n]]
-                    created_ads.append({'ad_name': retarget_name,
+                    created_ads.append({'ad_name': retarget_item['retarget_name'],
                                         'ad_vk_id': int(ad_id),
                                         'playlist_url': posts[post_urls[n]]})
                 sleep(uniform(2.9, 3.1))

@@ -21,9 +21,9 @@ class AdsCabinet(models.Model):
     owner = models.ForeignKey(User, related_name='ads_cabinets', on_delete=models.CASCADE)
     cabinet_type = models.CharField(max_length=6, choices=CABINET_TYPE_CHOICES)
     cabinet_name = models.CharField(max_length=100)
-    cabinet_id = models.IntegerField()
+    cabinet_vk_id = models.IntegerField()
     client_name = models.CharField(max_length=100, null=True, blank=True)
-    client_id = models.IntegerField(null=True, blank=True)
+    client_vk_id = models.IntegerField(null=True, blank=True)
 
     def __str__(self):
         if self.client_name:
@@ -35,8 +35,8 @@ class AdsCabinet(models.Model):
 class Campaign(models.Model):
 
     owner = models.ForeignKey(User, related_name='campaigns', on_delete=models.CASCADE)
-    cabinet_id = models.IntegerField()
-    client_id = models.IntegerField(null=True, blank=True)
+    cabinet_vk_id = models.IntegerField()
+    client_vk_id = models.IntegerField(null=True, blank=True)
     campaign_vk_id = models.IntegerField()
     campaign_name = models.CharField(max_length=100)
     campaign_budget = models.IntegerField()
@@ -83,8 +83,8 @@ class CampaignSettings(models.Model):
     AGE_CHOICES = [[0, 'Любой']] + [[x, str(x)] for x in range(14, 80)]
 
     owner = models.ForeignKey(User, related_name='campaigns_settings', on_delete=models.CASCADE)
-    cabinet_id = models.IntegerField()
-    client_id = models.IntegerField(default=0)
+    cabinet_vk_id = models.IntegerField()
+    client_vk_id = models.IntegerField(default=0)
     release_url = models.CharField(max_length=100)
     post_text = models.TextField()
     group_id = models.IntegerField()
@@ -95,3 +95,16 @@ class CampaignSettings(models.Model):
     age_from = models.IntegerField(choices=AGE_CHOICES, default=0)
     age_to = models.IntegerField(choices=AGE_CHOICES, default=0)
     find_related_artists = models.BooleanField(default=False)
+
+
+class Retarget(models.Model):
+
+    cabinet = models.ForeignKey(AdsCabinet, related_name='retarget', on_delete=models.CASCADE)
+    cabinet_vk_id = models.IntegerField(default=None)
+    client_vk_id = models.IntegerField(default=None, blank=True, null=True)
+    retarget_name = models.CharField(max_length=100)
+    retarget_vk_id = models.IntegerField()
+    audience_count = models.IntegerField(default=None)
+
+    def __str__(self):
+        return f'Retarget "{self.retarget_name}"'

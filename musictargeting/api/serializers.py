@@ -1,6 +1,8 @@
+from abc import ABC
+
 from rest_framework import serializers
 
-from .models import User, AdsCabinet, Campaign, Ad, CampaignSettings
+from .models import User, AdsCabinet, Campaign, Ad, CampaignSettings, Retarget
 
 
 class AdSerializer(serializers.ModelSerializer):
@@ -22,14 +24,28 @@ class CampaignExtendedSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Campaign
-        fields = 'cabinet_id', 'client_id', 'campaign_name', 'campaign_vk_id', 'campaign_budget', 'spent', \
+        fields = 'cabinet_vk_id', 'client_vk_id', 'campaign_name', 'campaign_vk_id', 'campaign_budget', 'spent', \
                  'listens', 'reach', 'clicks', 'subscribes', 'release_cover_url', 'create_datetime', 'ads'
+
+
+class RetargetSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Retarget
+        fields = 'retarget_name', 'retarget_vk_id', 'audience_count'
 
 
 class AdsCabinetSerializer(serializers.ModelSerializer):
     class Meta:
         model = AdsCabinet
-        fields = 'cabinet_type', 'cabinet_id', 'cabinet_name', 'client_id', 'client_name'
+        fields = 'cabinet_type', 'cabinet_vk_id', 'cabinet_name', 'client_vk_id', 'client_name'
+
+
+class AdsCabinetExtendedSerializer(serializers.ModelSerializer):
+    retarget = RetargetSerializer(many=True)
+
+    class Meta:
+        model = AdsCabinet
+        fields = 'cabinet_type', 'cabinet_vk_id', 'cabinet_name', 'client_vk_id', 'client_name', 'retarget'
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -56,5 +72,5 @@ class CampaignSettingsSerializer(serializers.ModelSerializer):
 class GroupSerializer(serializers.Serializer):
 
     group_name = serializers.CharField()
-    group_id = serializers.IntegerField()
+    group_vk_id = serializers.IntegerField()
     ava_url = serializers.CharField()

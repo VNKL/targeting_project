@@ -8,7 +8,7 @@ from django.http import JsonResponse
 from django.core.management import call_command
 from multiprocessing import Process
 
-from .models import User, AdsCabinet, Campaign, Ad
+from .models import User, AdsCabinet, Campaign, Ad, Retarget
 from . import serializers
 from . import vk_framework
 from ..settings import DEV_RUCAPTCHA_KEY, DEV_PROXY
@@ -67,10 +67,13 @@ class AdsCabinetListView(views.APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
-        if request.query_params.get('update_cabinets'):
+        if request.query_params.get('update'):
             self._update_user_ads_cabinets(request)
         ads_cabinets = get_list_or_404(AdsCabinet, owner=request.user)
-        serializer = serializers.AdsCabinetSerializer(ads_cabinets, many=True)
+        if request.query_params.get('extended'):
+            serializer = serializers.AdsCabinetExtendedSerializer(ads_cabinets, many=True)
+        else:
+            serializer = serializers.AdsCabinetSerializer(ads_cabinets, many=True)
         return Response(serializer.data)
 
     def post(self, request):
@@ -98,16 +101,17 @@ class AdsCabinetListView(views.APIView):
                     cabinet = AdsCabinet(owner=user,
                                          cabinet_type='user',
                                          cabinet_name=cab['cabinet_name'],
-                                         cabinet_id=cab['cabinet_id'])
+                                         cabinet_vk_id=cab['cabinet_id'])
                     cabinet.save()
+
             if ads_cabinets['client_cabinets']:
                 for cab in ads_cabinets['client_cabinets']:
                     cabinet = AdsCabinet(owner=user,
                                          cabinet_type='agency',
                                          cabinet_name=cab['cabinet_name'],
-                                         cabinet_id=cab['cabinet_id'],
+                                         cabinet_vk_id=cab['cabinet_id'],
                                          client_name=cab['client_name'],
-                                         client_id=cab['client_id'])
+                                         client_vk_id=cab['client_id'])
                     cabinet.save()
 
 
@@ -128,12 +132,9 @@ class CampaignListView(views.APIView):
         campaign_settings_serializer = serializers.CampaignSettingsSerializer(data=request_data)
         if campaign_settings_serializer.is_valid():
             campaign = campaign_settings_serializer.save()
-
             process = Process(target=call_command, args=('start_campaign', f'-pk={campaign.pk}',))
             process.start()
-            # call_command('start_campaign', f'-pk={campaign.pk}')
-
-            return Response({'detail': 'campaign is starting, it takes some time'})
+            return Response({'info': 'campaign is starting, it takes some time'})
         else:
             return Response(campaign_settings_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -154,7 +155,7 @@ class CampaignDetailView(views.APIView):
         if campaign_settings_serializer.is_valid():
             campaign = campaign_settings_serializer.save()
             call_command('start_campaign', f'--pk={campaign.pk}')
-            return Response({'detail': 'campaign is starting, it takes some time'})
+            return Response({'info': 'campaign is starting, it takes some time'})
         else:
             return Response(campaign_settings_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -187,4 +188,53 @@ class GroupListView(views.APIView):
             return Response(serializer.data)
 
 
+class RetargetListView(views.APIView):
+    permission_classes = [permissions.IsAuthenticated]
 
+    def get(self, request):
+        user = get_object_or_404(User, username=request.user.username)
+        if user:
+            if request.query_params.get('update'):
+                cabibets = AdsCabinet.objects.all().filter(owner=user)
+                for cab in list(cabibets):
+                    self._update_cabinet_retarget(cab, user)
+                return Response({'info': 'retarget was update'})
+
+            elif request.query_params.get('cabinet_vk_id'):
+                try:
+                    cabinet_vk_id = int(request.query_params.get('cabinet_vk_id'))
+                except (ValueError, TypeError):
+                    return Response({'detail': 'cabinet_vk_id must be int'}, status=status.HTTP_400_BAD_REQUEST)
+                retarget = get_list_or_404(Retarget, cabinet_vk_id=cabinet_vk_id)
+                serializer = serializers.RetargetSerializer(retarget, many=True)
+                return Response(serializer.data)
+
+            elif request.query_params.get('client_vk_id'):
+                try:
+                    client_vk_id = int(request.query_params.get('client_vk_id'))
+                except (ValueError, TypeError):
+                    return Response({'detail': 'client_vk_id must be int'}, status=status.HTTP_400_BAD_REQUEST)
+                retarget = get_list_or_404(Retarget, client_vk_id=client_vk_id)
+                serializer = serializers.RetargetSerializer(retarget, many=True)
+                return Response(serializer.data)
+
+            else:
+                return Response({'detail': 'cabinet_vk_id or client_vk_id is required'},
+                                status=status.HTTP_400_BAD_REQUEST)
+
+    @staticmethod
+    def _update_cabinet_retarget(cabinet, user):
+        vk = vk_framework.VkAds(token=user.vk_token,
+                                cabinet_id=cabinet.cabinet_id, client_id=cabinet.client_id,
+                                rucaptcha_key=DEV_RUCAPTCHA_KEY, proxy=DEV_PROXY)
+        vk_retarget = vk.get_retarget(minimal_size=0)
+        if vk_retarget:
+            new_retarget_objects = []
+            for retarget_item in vk_retarget:
+                new_retarget_objects.append(Retarget(cabinet=cabinet,
+                                                     cabinet_vk_id=cabinet.cabinet_id,
+                                                     client_vk_id=cabinet.client_id,
+                                                     retarget_name=retarget_item['retarget_name'],
+                                                     retarget_vk_id=retarget_item['retarget_id'],
+                                                     audience_count=retarget_item['audience_count']))
+            Retarget.objects.bulk_create(new_retarget_objects)
