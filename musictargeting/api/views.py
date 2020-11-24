@@ -87,32 +87,32 @@ class CabinetListView(views.APIView):
     @staticmethod
     def _update_user_ads_cabinets(request):
         user = get_object_or_404(User, username=request.user.username)
-        if user:
-            # Получение актуальных кабинетов
-            vk = vk_framework.VkTools(token=user.vk_token, rucaptcha_key=DEV_RUCAPTCHA_KEY, proxy=DEV_PROXY)
-            ads_cabinets = vk.get_all_ads_cabinets()
 
-            # Удаление предыдущих объектов кабинетов
-            Cabinet.objects.all().filter(owner=user).delete()
+        # Получение актуальных кабинетов
+        vk = vk_framework.VkTools(token=user.vk_token, rucaptcha_key=DEV_RUCAPTCHA_KEY, proxy=DEV_PROXY)
+        ads_cabinets = vk.get_all_ads_cabinets()
 
-            # Создание и сохранений новых объектов кабинетов
-            if ads_cabinets['user_cabinets']:
-                for cab in ads_cabinets['user_cabinets']:
-                    cabinet = Cabinet(owner=user,
-                                      cabinet_type='user',
-                                      cabinet_name=cab['cabinet_name'],
-                                      cabinet_vk_id=cab['cabinet_id'])
-                    cabinet.save()
+        # Удаление предыдущих объектов кабинетов
+        Cabinet.objects.all().filter(owner=user).delete()
 
-            if ads_cabinets['client_cabinets']:
-                for cab in ads_cabinets['client_cabinets']:
-                    cabinet = Cabinet(owner=user,
-                                      cabinet_type='agency',
-                                      cabinet_name=cab['cabinet_name'],
-                                      cabinet_vk_id=cab['cabinet_id'],
-                                      client_name=cab['client_name'],
-                                      client_vk_id=cab['client_id'])
-                    cabinet.save()
+        # Создание и сохранений новых объектов кабинетов
+        if ads_cabinets['user_cabinets']:
+            for cab in ads_cabinets['user_cabinets']:
+                cabinet = Cabinet(owner=user,
+                                  cabinet_type='user',
+                                  cabinet_name=cab['cabinet_name'],
+                                  cabinet_vk_id=cab['cabinet_id'])
+                cabinet.save()
+
+        if ads_cabinets['client_cabinets']:
+            for cab in ads_cabinets['client_cabinets']:
+                cabinet = Cabinet(owner=user,
+                                  cabinet_type='agency',
+                                  cabinet_name=cab['cabinet_name'],
+                                  cabinet_vk_id=cab['cabinet_id'],
+                                  client_name=cab['client_name'],
+                                  client_vk_id=cab['client_id'])
+                cabinet.save()
 
 
 class CampaignListView(views.APIView):
@@ -181,11 +181,10 @@ class GroupListView(views.APIView):
 
     def get(self, request):
         user = get_object_or_404(User, username=request.user.username)
-        if user:
-            vk = vk_framework.VkTools(token=user.vk_token, rucaptcha_key=DEV_RUCAPTCHA_KEY, proxy=DEV_PROXY)
-            groups = vk.get_groups()
-            serializer = serializers.GroupSerializer(groups, many=True)
-            return Response(serializer.data)
+        vk = vk_framework.VkTools(token=user.vk_token, rucaptcha_key=DEV_RUCAPTCHA_KEY, proxy=DEV_PROXY)
+        groups = vk.get_groups()
+        serializer = serializers.GroupSerializer(groups, many=True)
+        return Response(serializer.data)
 
 
 class RetargetListView(views.APIView):
@@ -193,34 +192,33 @@ class RetargetListView(views.APIView):
 
     def get(self, request):
         user = get_object_or_404(User, username=request.user.username)
-        if user:
-            if request.query_params.get('update'):
-                cabibets = Cabinet.objects.all().filter(owner=user)
-                for cab in list(cabibets):
-                    self._update_cabinet_retarget(cab, user)
-                return Response({'info': 'retarget was update'})
+        if request.query_params.get('update'):
+            cabibets = Cabinet.objects.all().filter(owner=user)
+            for cab in list(cabibets):
+                self._update_cabinet_retarget(cab, user)
+            return Response({'info': 'retarget was update'})
 
-            elif request.query_params.get('cabinet_vk_id'):
-                try:
-                    cabinet_vk_id = int(request.query_params.get('cabinet_vk_id'))
-                except (ValueError, TypeError):
-                    return Response({'detail': 'cabinet_vk_id must be int'}, status=status.HTTP_400_BAD_REQUEST)
-                retarget = get_list_or_404(Retarget, cabinet_vk_id=cabinet_vk_id)
-                serializer = serializers.RetargetSerializer(retarget, many=True)
-                return Response(serializer.data)
+        elif request.query_params.get('cabinet_vk_id'):
+            try:
+                cabinet_vk_id = int(request.query_params.get('cabinet_vk_id'))
+            except (ValueError, TypeError):
+                return Response({'detail': 'cabinet_vk_id must be int'}, status=status.HTTP_400_BAD_REQUEST)
+            retarget = get_list_or_404(Retarget, cabinet_vk_id=cabinet_vk_id)
+            serializer = serializers.RetargetSerializer(retarget, many=True)
+            return Response(serializer.data)
 
-            elif request.query_params.get('client_vk_id'):
-                try:
-                    client_vk_id = int(request.query_params.get('client_vk_id'))
-                except (ValueError, TypeError):
-                    return Response({'detail': 'client_vk_id must be int'}, status=status.HTTP_400_BAD_REQUEST)
-                retarget = get_list_or_404(Retarget, client_vk_id=client_vk_id)
-                serializer = serializers.RetargetSerializer(retarget, many=True)
-                return Response(serializer.data)
+        elif request.query_params.get('client_vk_id'):
+            try:
+                client_vk_id = int(request.query_params.get('client_vk_id'))
+            except (ValueError, TypeError):
+                return Response({'detail': 'client_vk_id must be int'}, status=status.HTTP_400_BAD_REQUEST)
+            retarget = get_list_or_404(Retarget, client_vk_id=client_vk_id)
+            serializer = serializers.RetargetSerializer(retarget, many=True)
+            return Response(serializer.data)
 
-            else:
-                return Response({'detail': 'cabinet_vk_id or client_vk_id is required'},
-                                status=status.HTTP_400_BAD_REQUEST)
+        else:
+            return Response({'detail': 'cabinet_vk_id or client_vk_id is required'},
+                            status=status.HTTP_400_BAD_REQUEST)
 
     @staticmethod
     def _update_cabinet_retarget(cabinet, user):
