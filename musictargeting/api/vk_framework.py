@@ -853,8 +853,9 @@ class VkAds:
         :return:                dict, {ad_id, {'name': str, 'cpm': int, 'status': 1/0, 'approved': 0/1/2/3}}
 
                                        cpm - в копейках,
-                                       status: 1 - запущено,
-                                               0 - остановлено
+                                       status: 0 - остановлено,
+                                               1 - запущено,
+                                               2 - удалено
                                        approved: 0 — объявление не проходило модерацию,
                                                  1 — объявление ожидает модерации,
                                                  2 — объявление одобрено,
@@ -863,13 +864,14 @@ class VkAds:
         api_method_params = {'campaign_ids': json.dumps([campaign_id]), 'include_deleted': 1}
         ads_response = self._api_response('ads.getAds', api_method_params)
 
-        ads = {}
-        for ad in ads_response:
-            ads[int(ad['id'])] = {'name': ad['name'],
-                                  'cpm': int(ad['cpm']),
-                                  'status': int(ad['status']),
-                                  'approved': int(ad['approved'])}
-        return ads
+        if ads_response:
+            ads = {}
+            for ad in ads_response:
+                ads[int(ad['id'])] = {'name': ad['name'],
+                                      'cpm': int(ad['cpm']),
+                                      'status': int(ad['status']),
+                                      'approved': int(ad['approved'])}
+            return ads
 
     def get_ads_stat(self, campaign_id=None, ads=None):
         """
@@ -906,11 +908,12 @@ class VkAds:
         """
         Возвращает дикт с названиями кампаний и их айди
 
-        :return:    dict, {campaign_name: campaign_id}
+        dict,       {campaign_id, {'name': str, 'status': 0/1/2}}
         """
-        campaigns_response = self._api_response('ads.getCampaigns')
+        campaigns_response = self._api_response('ads.getCampaigns', {'include_deleted': 1})
 
-        return {campaign['name']: campaign['id'] for campaign in campaigns_response}
+        if campaigns_response:
+            return {camp['id']: {'name': camp['name'], 'status': int(camp['status'])} for camp in campaigns_response}
 
     def get_musicians(self, artist_names):
         """

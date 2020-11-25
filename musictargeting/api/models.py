@@ -53,6 +53,7 @@ class Campaign(models.Model):
     listens = models.IntegerField(default=0)
     cpl = models.IntegerField(default=0)
     create_datetime = models.DateTimeField(auto_now_add=True)
+    status = models.IntegerField(default=1)
 
     def __str__(self):
         return f'Campaign "{self.campaign_name}"'
@@ -72,7 +73,9 @@ class Ad(models.Model):
     clicks = models.IntegerField(default=0)
     subscribes = models.IntegerField(default=0)
     listens = models.IntegerField(default=0)
-    cpl = models.IntegerField(default=0)
+    cpl = models.FloatField(default=0)
+    status = models.IntegerField(default=1)
+    approved = models.IntegerField(default=1)
 
     def __str__(self):
         return f'Ad "{self.ad_name}" in campaign "{self.campaign_name}"'
