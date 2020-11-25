@@ -13,7 +13,7 @@ class Command(BaseCommand):
         parser.add_argument('-campaign_primary_key', action='store', dest='pk', type=int)
         parser.add_argument('-automate', action='store', dest='ss', type=int)
         parser.add_argument('-target_cost', action='store', dest='tc', type=int)
-        parser.add_argument('-start_tomorrow', action='store', dest='tc', type=int)
+        parser.add_argument('-start_tomorrow', action='store', dest='st', type=int)
         parser.add_argument('-finish_tomorrow', action='store', dest='ft', type=int)
 
     def handle(self, *args, **options):
@@ -27,4 +27,7 @@ class Command(BaseCommand):
 
         # Если передан параметр запуска автоматизации - собственно запуск автоматизации
         if options['ss']:
-            automate_campaign(campaign, options['tc'], options['ft'])
+            automate_campaign(campaign=campaign,
+                              target_cost=options['tc'],
+                              start_tomorrow=options['st'],
+                              finish_tomorrow=options['ft'])

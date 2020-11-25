@@ -215,6 +215,10 @@ class CampaignDetailView(views.APIView):
 
         campaign.cpm = updated_campaign_stat['spent'] / (reach / 1000) if reach else 0
         campaign.cpl = updated_campaign_stat['spent'] / listens if listens else 0
+
+        if 'status' in updated_campaign_stat.keys():
+            campaign.status = updated_campaign_stat['status']
+
         campaign.save()
 
         return campaign
@@ -243,7 +247,8 @@ class CampaignDetailView(views.APIView):
             updated_ad_objects.append(ad)
 
         # Сохранение обновленных объектво объявлений в БД
-        Ad.objects.bulk_update(updated_ad_objects, ['spent', 'reach', 'cpm', 'clicks', 'subscribes', 'listens'])
+        Ad.objects.bulk_update(updated_ad_objects, ['spent', 'reach', 'cpm', 'clicks', 'subscribes', 'listens',
+                                                    'status', 'approved'])
 
         # Возврат обновленной средней статы кампании
         return updated_campaign_stat
