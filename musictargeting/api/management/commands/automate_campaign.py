@@ -15,6 +15,7 @@ class Command(BaseCommand):
         parser.add_argument('-target_cost', action='store', dest='tc', type=int)
         parser.add_argument('-start_tomorrow', action='store', dest='st', type=int)
         parser.add_argument('-finish_tomorrow', action='store', dest='ft', type=int)
+        parser.add_argument('-is_restart', action='store', dest='rs', type=int)
 
     def handle(self, *args, **options):
         campaign = get_object_or_404(Campaign, pk=options['pk'])
@@ -30,4 +31,5 @@ class Command(BaseCommand):
             automate_campaign(campaign=campaign,
                               target_cost=options['tc'],
                               start_tomorrow=options['st'],
-                              finish_tomorrow=options['ft'])
+                              finish_tomorrow=options['ft'],
+                              is_restart=options['rs'] if options['rs'] else 0)

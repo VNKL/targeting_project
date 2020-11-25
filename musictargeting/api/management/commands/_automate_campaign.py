@@ -6,14 +6,18 @@ from musictargeting.api import vk_framework
 from musictargeting.settings import DEV_PROXY, DEV_RUCAPTCHA_KEY
 
 
-def automate_campaign(campaign, target_cost, start_tomorrow, finish_tomorrow):
+def automate_campaign(campaign, target_cost, start_tomorrow, finish_tomorrow, is_restart):
 
     # Получение переменных, которые не будут меняться в процессе
     # Там же заодно снимаются лимиты с объявлений и обновляется объект кампании в БД (automate=1)
     ads, ads_for_vk_framework, campaign_pk, vk = _get_automate_constant_objects(campaign)
 
     # Получение времени старта и остановки автоматизации кампании
-    start_time, finish_time = _get_time_params(finish_tomorrow, start_tomorrow)
+    if is_restart:
+        automate_settings = list(campaign.automate_settings.all().order_by('-settings_create_datetime'))[0]
+        start_time, finish_time = automate_settings.start_time, automate_settings.finish_time
+    else:
+        start_time, finish_time = _get_time_params(finish_tomorrow, start_tomorrow)
 
     # Ожидание наступления времени старта автоматизации
     _waiting_start_time(start_time)

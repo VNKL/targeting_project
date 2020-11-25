@@ -118,6 +118,9 @@ class Retarget(models.Model):
 
 class AutomateSettings(models.Model):
 
-    owner = models.ForeignKey(User, related_name='automate_settings', on_delete=models.CASCADE)
+    campaign = models.ForeignKey(Campaign, related_name='automate_settings', on_delete=models.CASCADE)
     campaign_vk_id = models.IntegerField()
     target_cost = models.FloatField()
+    settings_create_datetime = models.DateTimeField(auto_now_add=True)
+    start_time = models.DateTimeField(blank=True)
+    finish_time = models.DateTimeField(blank=True)
