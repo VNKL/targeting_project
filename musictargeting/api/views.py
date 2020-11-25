@@ -144,16 +144,32 @@ class CampaignDetailView(views.APIView):
 
     def get(self, request, campaign_vk_id):
         campaign = get_object_or_404(Campaign, owner=request.user, campaign_vk_id=campaign_vk_id)
+
         if request.query_params.get('update'):
             campaign = self._update_campaign_stats(campaign, campaign_vk_id, request)
+
+        elif request.query_params.get('automate'):
+            return self._automate_campaign(campaign, request)
+
         serializer = serializers.CampaignExtendedSerializer(campaign)
         return Response(serializer.data)
+
+    @staticmethod
+    def _automate_campaign(campaign, request):
+        automate_setting = {k: v[0] for k, v in dict(request.query_params).items()}
+        automate_setting['campaign_primary_key'] = campaign.pk
+        serializer = serializers.AutomateSettingsSerializer(data=automate_setting)
+        if serializer.is_valid():
+            call_command('automate_campaign', **serializer.data)
+            return Response({'info': 'campaign automate is starting, it take some time'})
+        else:
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def post(self, request):
         campaign_settings_serializer = serializers.CampaignSettingsSerializer(data=request.data)
         if campaign_settings_serializer.is_valid():
             campaign = campaign_settings_serializer.save()
-            call_command('start_campaign', f'--pk={campaign.pk}')
+            call_command('start_campaign', pk=campaign.pk)
             return Response({'info': 'campaign is starting, it takes some time'})
         else:
             return Response(campaign_settings_serializer.errors, status=status.HTTP_400_BAD_REQUEST)

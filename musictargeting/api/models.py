@@ -54,6 +54,7 @@ class Campaign(models.Model):
     cpl = models.IntegerField(default=0)
     create_datetime = models.DateTimeField(auto_now_add=True)
     status = models.IntegerField(default=1)
+    automate = models.IntegerField(default=0)
 
     def __str__(self):
         return f'Campaign "{self.campaign_name}"'
@@ -113,3 +114,10 @@ class Retarget(models.Model):
 
     def __str__(self):
         return f'Retarget "{self.retarget_name}"'
+
+
+class AutomateSettings(models.Model):
+
+    owner = models.ForeignKey(User, related_name='automate_settings', on_delete=models.CASCADE)
+    campaign_vk_id = models.IntegerField()
+    target_cost = models.FloatField()

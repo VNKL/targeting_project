@@ -70,6 +70,15 @@ class CampaignSettingsSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
+class AutomateSettingsSerializer(serializers.Serializer):
+
+    campaign_primary_key = serializers.IntegerField()
+    automate = serializers.BooleanField()
+    target_cost = serializers.FloatField()
+    start_tomorrow = serializers.BooleanField(default=False)
+    finish_tomorrow = serializers.BooleanField(default=False)
+
+
 class GroupSerializer(serializers.Serializer):
 
     group_name = serializers.CharField()
