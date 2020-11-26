@@ -213,17 +213,19 @@ def _ads_stat_unpack(stat_response):
     """
     ads_stats = {}
     for ad in stat_response:
+        ads_stats[ad['id']] = {'spent': 0, 'reach': 0, 'cpm': 0, 'clicks': 0, 'subscribes': 0}
         if ad['stats']:
-            spent = float(ad['stats'][0]['spent'])
-            reach = int(ad['stats'][0]['impressions'])
-            cpm = round((spent / (reach / 1000)), 2)
-            clicks = int(ad['stats'][0]['clicks'])
-            subscribes = int(ad['stats'][0]['subscribes'])
-            ads_stats[ad['id']] = {'spent': spent, 'reach': reach, 'cpm': cpm,
-                                   'clicks': clicks, 'subscribes': subscribes}
-        else:
-            ads_stats[ad['id']] = {'spent': 0, 'reach': 0, 'cpm': 0, 'clicks': 0, 'subscribes': 0}
-
+            if 'spent' in ad['stats'][0].keys():
+                spent = float(ad['stats'][0]['spent'])
+                reach = int(ad['stats'][0]['impressions'])
+                cpm = round((spent / (reach / 1000)), 2)
+                ads_stats[ad['id']].update({'spent': spent, 'reach': reach, 'cpm': cpm})
+            if 'clicks' in ad['stats'][0].keys():
+                clicks = int(ad['stats'][0]['clicks'])
+                ads_stats[ad['id']].update({'clicks': clicks})
+            if 'join_rate' in ad['stats'][0].keys():
+                subscribes = int(ad['stats'][0]['join_rate'])
+                ads_stats[ad['id']].update({'subscribes': subscribes})
     return ads_stats
 
 

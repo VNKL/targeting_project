@@ -197,7 +197,7 @@ class CampaignDetailView(views.APIView):
         # Обновление статуса кампании
         campaign_status = vk.ads.get_campaigns()
         if campaign_status:
-            updated_campaign_stat['status'] = campaign_status[campaign_vk_id]
+            updated_campaign_stat['status'] = campaign_status[campaign_vk_id]['status']
 
         # Обновление объекта кампании и сохранение его в БД
         updated_campaign = CampaignDetailView._update_campaign_object(campaign, updated_campaign_stat)
@@ -206,17 +206,22 @@ class CampaignDetailView(views.APIView):
 
     @staticmethod
     def _update_campaign_object(campaign, updated_campaign_stat):
-        campaign.spent = updated_campaign_stat['spent']
-        campaign.listens = updated_campaign_stat['listens']
-        campaign.listens = updated_campaign_stat['reach']
-        campaign.listens = updated_campaign_stat['clicks']
-        campaign.listens = updated_campaign_stat['subscribes']
-
+        spent = round(updated_campaign_stat['spent'], 2)
         reach = updated_campaign_stat['reach']
         listens = updated_campaign_stat['listens']
+        clicks = updated_campaign_stat['clicks']
+        subscribes = updated_campaign_stat['subscribes']
 
-        campaign.cpm = updated_campaign_stat['spent'] / (reach / 1000) if reach else 0
-        campaign.cpl = updated_campaign_stat['spent'] / listens if listens else 0
+        campaign.spent = spent
+        campaign.listens = listens
+        campaign.reach = reach
+        campaign.clicks = clicks
+        campaign.subscribes = subscribes
+
+        campaign.cpm = round((spent / (reach / 1000)), 2) if reach else 0
+        campaign.cpl = round((spent / listens), 2) if listens else 0
+        campaign.cpc = round((spent / clicks), 2) if clicks else 0
+        campaign.cps = round((spent / subscribes), 2) if subscribes else 0
 
         if 'status' in updated_campaign_stat.keys():
             campaign.status = updated_campaign_stat['status']
@@ -235,22 +240,34 @@ class CampaignDetailView(views.APIView):
                 # Обновление статы в объектах объявлений
                 ad.spent = ads_stat[ad.ad_vk_id]['spent']
                 ad.reach = ads_stat[ad.ad_vk_id]['reach'],
-                ad.cpm = ads_stat[ad.ad_vk_id]['cpm'],
-                ad.clicks = ads_stat[ad.ad_vk_id]['clicks'],
-                ad.subscribes = ads_stat[ad.ad_vk_id]['subscribes'],
+                ad.reach = ad.reach[0]
                 ad.listens = ads_stat[ad.ad_vk_id]['listens']
+                ad.clicks = ads_stat[ad.ad_vk_id]['clicks'],
+                ad.clicks = ad.clicks[0]
+                ad.subscribes = ads_stat[ad.ad_vk_id]['subscribes'],
+                ad.subscribes = ad.subscribes[0]
+
+                ad.cpm = ads_stat[ad.ad_vk_id]['cpm'],
+                ad.cpm = ad.cpm[0]
+                ad.cpl = round((ad.spent / ad.listens), 2) if ad.listens else 0
+                ad.cpc = round((ad.spent / ad.clicks), 2) if ad.clicks else 0
+                ad.cps = round((ad.spent / ad.subscribes), 2) if ad.subscribes else 0
+
                 # Обновление средней статы кампании
                 for param in updated_campaign_stat.keys():
                     updated_campaign_stat[param] += ads_stat[ad.ad_vk_id][param]
+
             # Обновление статусов объявлений
             ad.status = ads_statuses[ad.ad_vk_id]['status']
             ad.approved = ads_statuses[ad.ad_vk_id]['approved']
+
             # Добавление обновленного объекта в лист
             updated_ad_objects.append(ad)
 
         # Сохранение обновленных объектво объявлений в БД
-        Ad.objects.bulk_update(updated_ad_objects, ['spent', 'reach', 'cpm', 'clicks', 'subscribes', 'listens',
-                                                    'status', 'approved'])
+        Ad.objects.bulk_update(updated_ad_objects,
+                               ['spent', 'reach', 'cpm', 'clicks', 'subscribes', 'listens', 'status', 'approved'],
+                               batch_size=55)
 
         # Возврат обновленной средней статы кампании
         return updated_campaign_stat

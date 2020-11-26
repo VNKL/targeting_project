@@ -49,15 +49,20 @@ class Campaign(models.Model):
     reach = models.IntegerField(default=0)
     cpm = models.FloatField(default=30.0)
     clicks = models.IntegerField(default=0)
+    cpc = models.FloatField(default=0)
     subscribes = models.IntegerField(default=0)
+    cps = models.FloatField(default=0)
     listens = models.IntegerField(default=0)
-    cpl = models.IntegerField(default=0)
+    cpl = models.FloatField(default=0)
     create_datetime = models.DateTimeField(auto_now_add=True)
     status = models.IntegerField(default=1)
     automate = models.IntegerField(default=0)
 
     def __str__(self):
         return f'Campaign "{self.campaign_name}"'
+
+    class Meta:
+        ordering = ['-pk']
 
 
 class Ad(models.Model):
@@ -72,7 +77,9 @@ class Ad(models.Model):
     reach = models.IntegerField(default=0)
     cpm = models.FloatField(default=30.0)
     clicks = models.IntegerField(default=0)
+    cpc = models.FloatField(default=0)
     subscribes = models.IntegerField(default=0)
+    cps = models.FloatField(default=0)
     listens = models.IntegerField(default=0)
     cpl = models.FloatField(default=0)
     status = models.IntegerField(default=1)
@@ -80,6 +87,9 @@ class Ad(models.Model):
 
     def __str__(self):
         return f'Ad "{self.ad_name}" in campaign "{self.campaign_name}"'
+
+    class Meta:
+        ordering = ['-pk']
 
 
 class CampaignSettings(models.Model):
