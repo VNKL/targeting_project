@@ -1,5 +1,3 @@
-import json
-from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, get_list_or_404
 from rest_framework import viewsets, views, status
 from rest_framework import permissions
@@ -8,10 +6,10 @@ from django.http import JsonResponse
 from django.core.management import call_command
 from multiprocessing import Process
 
-from .models import User, Cabinet, Campaign, Ad, Retarget
-from . import serializers
-from . import vk_framework
-from ..settings import DEV_RUCAPTCHA_KEY, DEV_PROXY
+from musictargeting.api.models import User, Cabinet, Campaign, Ad, Retarget
+from musictargeting.api import serializers
+from musictargeting.api import vk_framework
+from musictargeting.settings import DEV_RUCAPTCHA_KEY, DEV_PROXY
 
 
 def api_index_view(request):
@@ -266,8 +264,9 @@ class CampaignDetailView(views.APIView):
 
         # Сохранение обновленных объектво объявлений в БД
         Ad.objects.bulk_update(updated_ad_objects,
-                               ['spent', 'reach', 'cpm', 'clicks', 'subscribes', 'listens', 'status', 'approved'],
-                               batch_size=55)
+                               ['spent', 'reach', 'cpm', 'clicks', 'cpc', 'subscribes', 'cps', 'listens', 'cpl',
+                                'status', 'approved'],
+                               batch_size=40)
 
         # Возврат обновленной средней статы кампании
         return updated_campaign_stat

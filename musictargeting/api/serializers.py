@@ -1,8 +1,6 @@
-from abc import ABC
-
 from rest_framework import serializers
 
-from .models import User, Cabinet, Campaign, Ad, CampaignSettings, Retarget
+from musictargeting.api.models import User, Cabinet, Campaign, Ad, CampaignSettings, Retarget
 
 
 class AdSerializer(serializers.ModelSerializer):

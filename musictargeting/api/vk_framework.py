@@ -8,7 +8,7 @@ from random import uniform
 from python_rucaptcha import ImageCaptcha
 from datetime import datetime
 
-from ..settings import VK_API_VERSION
+from musictargeting.settings import VK_API_VERSION
 
 
 def _anticaptcha(captcha_img, rucaptcha_key):
@@ -207,7 +207,6 @@ def _ads_stat_unpack(stat_response):
     """
     Возвращает разобранный объект со статой объявлений, ставит нули там, где статы еще нет
 
-    :param ads:             dist, дикт с объявлениями из VkAds.get_ads()
     :param stat_response:   dict, разобранный из JSON объект ВК со статой объявлений
     :return:                dict, {ad_id: {'spent': , 'reach': , 'cpm': , 'clicks': , 'subscribes': }}
     """

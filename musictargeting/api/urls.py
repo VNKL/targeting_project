@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import views as api_views
+from musictargeting.api import views as api_views
 
 app_name = 'api'
 
