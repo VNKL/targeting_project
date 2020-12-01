@@ -52,21 +52,11 @@ class UserView(views.APIView):
             serializer = serializers.UserSerializer(user)
         return Response(serializer.data)
 
-    def post(self, request):
-        serializer = serializers.UserExtendedSerializer(data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data)
-        else:
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
 
 class CabinetListView(views.APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
-        if request.query_params.get('update'):
-            self._update_user_ads_cabinets(request)
         ads_cabinets = get_list_or_404(Cabinet, owner=request.user)
         if request.query_params.get('extended'):
             serializer = serializers.CabinetExtendedSerializer(ads_cabinets, many=True)
@@ -74,13 +64,13 @@ class CabinetListView(views.APIView):
             serializer = serializers.CabinetSerializer(ads_cabinets, many=True)
         return Response(serializer.data)
 
-    def post(self, request):
-        serializer = serializers.CabinetSerializer(data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data)
-        else:
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class CabinetUpdateView(views.APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        self._update_user_ads_cabinets(request)
+        return Response({'info': 'cabinets was update'})
 
     @staticmethod
     def _update_user_ads_cabinets(request):
@@ -113,6 +103,26 @@ class CabinetListView(views.APIView):
                 cabinet.save()
 
 
+class CampaignCreateView(views.APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        params = {'owner': request.user,
+                  'cabinet_vk_id': request.query_params.get('cabinet_vk_id'),
+                  'release_url': request.query_params.get('release_url'),
+                  'post_text': request.query_params.get('post_text'),
+                  'group_id': request.query_params.get('group_id'),
+                  'budget': request.query_params.get('budget')}
+
+        campaign_settings_serializer = serializers.CampaignSettingsSerializer(data=params)
+        if campaign_settings_serializer.is_valid():
+            campaign = campaign_settings_serializer.save()
+            call_command('start_campaign', pk=campaign.pk)
+            return Response({'info': 'campaign is starting, it takes some time'})
+        else:
+            return Response(campaign_settings_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
 class CampaignListView(views.APIView):
     permission_classes = [permissions.IsAuthenticated]
 
@@ -124,55 +134,30 @@ class CampaignListView(views.APIView):
             serializer = serializers.CampaignSerializer(campaigns, many=True)
         return Response(serializer.data)
 
-    def post(self, request):
-        request_data = request.data
-        request_data.update({'owner': request.user})
-        campaign_settings_serializer = serializers.CampaignSettingsSerializer(data=request_data)
-        if campaign_settings_serializer.is_valid():
-            campaign = campaign_settings_serializer.save()
-            process = Process(target=call_command, args=('start_campaign', f'-pk={campaign.pk}',))
-            process.start()
-            return Response({'info': 'campaign is starting, it takes some time'})
-        else:
-            return Response(campaign_settings_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
 
 class CampaignDetailView(views.APIView):
     permission_classes = [permissions.IsAuthenticated]
 
-    def get(self, request, campaign_vk_id):
+    def get(self, request):
+        campaign_vk_id = request.query_params.get('campaign_vk_id')
+        if not campaign_vk_id:
+            return Response({'detail': 'campaign_vk_id is required'}, status=status.HTTP_400_BAD_REQUEST)
         campaign = get_object_or_404(Campaign, owner=request.user, campaign_vk_id=campaign_vk_id)
-
-        if request.query_params.get('update'):
-            campaign = self._update_campaign_stats(campaign, campaign_vk_id, request)
-
-        elif request.query_params.get('automate'):
-            return self._automate_campaign(campaign, request)
-
         serializer = serializers.CampaignExtendedSerializer(campaign)
         return Response(serializer.data)
 
-    def post(self, request):
-        campaign_settings_serializer = serializers.CampaignSettingsSerializer(data=request.data)
-        if campaign_settings_serializer.is_valid():
-            campaign = campaign_settings_serializer.save()
-            call_command('start_campaign', pk=campaign.pk)
-            return Response({'info': 'campaign is starting, it takes some time'})
-        else:
-            return Response(campaign_settings_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    @staticmethod
-    def _automate_campaign(campaign, request):
-        automate_setting = {k: v[0] for k, v in dict(request.query_params).items()}
-        automate_setting['campaign_primary_key'] = campaign.pk
-        automate_setting['campaign'] = campaign
-        serializer = serializers.AutomateSettingsSerializer(data=automate_setting)
-        if serializer.is_valid():
-            serializer.save()
-            call_command('automate_campaign', **serializer.data)
-            return Response({'info': 'campaign automate is starting, it take some time'})
-        else:
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+class CampaignUpdateStatsView(views.APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        campaign_vk_id = request.query_params.get('campaign_vk_id')
+        if not campaign_vk_id:
+            return Response({'detail': 'campaign_vk_id is required'}, status=status.HTTP_400_BAD_REQUEST)
+        campaign = get_object_or_404(Campaign, owner=request.user, campaign_vk_id=campaign_vk_id)
+        campaign = self._update_campaign_stats(campaign, campaign_vk_id, request)
+        serializer = serializers.CampaignExtendedSerializer(campaign)
+        return Response(serializer.data)
 
     @staticmethod
     def _update_campaign_stats(campaign, campaign_vk_id, request):
@@ -190,7 +175,7 @@ class CampaignDetailView(views.APIView):
         ads_statuses = vk.ads.get_ads(campaign_id=campaign_vk_id)
 
         # Обновление объектов объявлений и получение обновлений для объекта кампании
-        updated_campaign_stat = CampaignDetailView._update_ads_objects(ads, ads_stat, ads_statuses)
+        updated_campaign_stat = CampaignUpdateStatsView._update_ads_objects(ads, ads_stat, ads_statuses)
 
         # Обновление статуса кампании
         campaign_status = vk.ads.get_campaigns()
@@ -198,7 +183,7 @@ class CampaignDetailView(views.APIView):
             updated_campaign_stat['status'] = campaign_status[campaign_vk_id]['status']
 
         # Обновление объекта кампании и сохранение его в БД
-        updated_campaign = CampaignDetailView._update_campaign_object(campaign, updated_campaign_stat)
+        updated_campaign = CampaignUpdateStatsView._update_campaign_object(campaign, updated_campaign_stat)
 
         return updated_campaign
 
@@ -272,6 +257,43 @@ class CampaignDetailView(views.APIView):
         return updated_campaign_stat
 
 
+class CampaignStartAutomateView(views.APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        campaign_vk_id = request.query_params.get('campaign_vk_id')
+        if not campaign_vk_id:
+            return Response({'detail': 'campaign_vk_id is required'}, status=status.HTTP_400_BAD_REQUEST)
+        campaign = get_object_or_404(Campaign, owner=request.user, campaign_vk_id=campaign_vk_id)
+        return self._automate_campaign(campaign, request)
+
+    @staticmethod
+    def _automate_campaign(campaign, request):
+        automate_setting = {k: v[0] for k, v in dict(request.query_params).items()}
+        automate_setting['campaign_primary_key'] = campaign.pk
+        automate_setting['campaign'] = campaign
+        serializer = serializers.AutomateSettingsSerializer(data=automate_setting)
+        if serializer.is_valid():
+            serializer.save()
+            call_command('automate_campaign', **serializer.data)
+            return Response({'info': 'campaign automate is starting, it take some time'})
+        else:
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class CampaignStopAutomateView(views.APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        campaign_vk_id = request.query_params.get('campaign_vk_id')
+        if not campaign_vk_id:
+            return Response({'detail': 'campaign_vk_id is required'}, status=status.HTTP_400_BAD_REQUEST)
+        campaign = get_object_or_404(Campaign, owner=request.user, campaign_vk_id=campaign_vk_id)
+        campaign.automate = 0
+        campaign.save()
+        return Response({'info': 'campaign automate is stopping, it take some time'})
+
+
 class AdListView(views.APIView):
     permission_classes = [permissions.IsAuthenticated]
 
@@ -295,6 +317,9 @@ class GroupListView(views.APIView):
         user = get_object_or_404(User, username=request.user.username)
         vk = vk_framework.VkTools(token=user.vk_token, rucaptcha_key=DEV_RUCAPTCHA_KEY, proxy=DEV_PROXY)
         groups = vk.get_groups()
+        groups = [{'group_name': x['group_name'],
+                   'group_vk_id': x['group_id'],
+                   'ava_url': x['ava_url']} for x in groups]
         serializer = serializers.GroupSerializer(groups, many=True)
         return Response(serializer.data)
 
@@ -303,14 +328,7 @@ class RetargetListView(views.APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
-        user = get_object_or_404(User, username=request.user.username)
-        if request.query_params.get('update'):
-            cabibets = Cabinet.objects.all().filter(owner=user)
-            for cab in list(cabibets):
-                self._update_cabinet_retarget(cab, user)
-            return Response({'info': 'retarget was update'})
-
-        elif request.query_params.get('cabinet_vk_id'):
+        if request.query_params.get('cabinet_vk_id'):
             try:
                 cabinet_vk_id = int(request.query_params.get('cabinet_vk_id'))
             except (ValueError, TypeError):
@@ -331,6 +349,17 @@ class RetargetListView(views.APIView):
         else:
             return Response({'detail': 'cabinet_vk_id or client_vk_id is required'},
                             status=status.HTTP_400_BAD_REQUEST)
+
+
+class RetargetUpdateView(views.APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        user = get_object_or_404(User, username=request.user.username)
+        cabibets = Cabinet.objects.all().filter(owner=user)
+        for cab in list(cabibets):
+            self._update_cabinet_retarget(cab, user)
+        return Response({'info': 'retarget was update'})
 
     @staticmethod
     def _update_cabinet_retarget(cabinet, user):
