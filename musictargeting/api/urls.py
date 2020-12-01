@@ -7,7 +7,7 @@ app_name = 'api'
 urlpatterns = [
     path('', api_views.api_index_view),
 
-    path('user.create', api_views.UserView.as_view()),
+    path('user.create', api_views.UserCreateView.as_view()),
     path('user.get', api_views.UserView.as_view()),                         # extended
 
     path('cabinets.get', api_views.CabinetListView.as_view()),              # extended

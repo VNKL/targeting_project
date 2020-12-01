@@ -1,6 +1,7 @@
 from django.shortcuts import get_object_or_404, get_list_or_404
 from rest_framework import viewsets, views, status
 from rest_framework import permissions
+from rest_framework.generics import CreateAPIView
 from rest_framework.response import Response
 from django.http import JsonResponse
 from django.core.management import call_command
@@ -51,6 +52,12 @@ class UserView(views.APIView):
         else:
             serializer = serializers.UserSerializer(user)
         return Response(serializer.data)
+
+
+class UserCreateView(CreateAPIView):
+    model = User
+    serializer_class = serializers.UserCreateSerializer
+    permission_classes = [permissions.AllowAny]
 
 
 class CabinetListView(views.APIView):

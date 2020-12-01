@@ -54,6 +54,22 @@ class UserSerializer(serializers.ModelSerializer):
         fields = 'username', 'vk_user_id', 'vk_token'
 
 
+class UserCreateSerializer(serializers.ModelSerializer):
+    password = serializers.CharField(write_only=True)
+
+    def create(self, validated_data):
+        user = User.objects.create(username=validated_data['username'],
+                                   vk_user_id=validated_data['vk_user_id'],
+                                   vk_token=validated_data['vk_token'])
+        user.set_password(validated_data['password'])
+        user.save()
+        return user
+
+    class Meta:
+        model = User
+        fields = 'username', 'vk_user_id', 'vk_token', 'id', 'password'
+
+
 class UserExtendedSerializer(serializers.ModelSerializer):
     cabinets = CabinetSerializer(many=True)
     campaigns = CampaignSerializer(many=True)
