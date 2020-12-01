@@ -532,12 +532,8 @@ class VkAPI:
         for name, domain in release['artist_domains'].items():
             artist_names.append(name)
             if find_related_artists:
-                artist_card_url = f'https://vk.com/artist/{domain}'
-                related_artists = self.artist_cards.get_related_artists(artist_card_url=artist_card_url,
-                                                                        listens_threshold=20000,
-                                                                        days_from_last_release=90,
-                                                                        max_recurse_level=1)
-                artist_names.extend(list(related_artists.keys()))
+                related_artists = self.audio.get_related_artists(release=release, include_nn=True)
+                artist_names.extend(related_artists)
 
         return list(set(artist_names))
 
@@ -767,6 +763,115 @@ class VkAudio:
             duplicate_playlist_urls.append(f'https://vk.com/music/album/-{group_id}_{playlist_id}')
 
         return duplicate_playlist_urls
+
+    def get_related_artists(self, release, include_nn=False):
+        """
+        Возвращает список имен "похожих" артистов
+
+        :param artist_card_url:
+        :param include_nn:
+        :return:                    list, [artist_name, ...]
+        """
+
+        finded_artists = [x for x in list(release['artist_domains'].keys())]
+        artist_domains = [f'https://vk.com/artist/{x}' for x in list(release['artist_domains'].values())]
+
+        for domain in artist_domains:
+            artist_card_id = self._get_artist_card_id(artist_id_or_card_url=domain)
+            artist_card_item = self._api_response('catalog.getSection', {'section_id': artist_card_id})
+            related_artists = self._pars_artist_card(artist_card_item=artist_card_item)
+            finded_artists.extend(list(related_artists.keys()))
+
+        if include_nn:
+            similar_artists = self._get_similar_artists(release_url=None)
+            if similar_artists:
+                finded_artists.extend(similar_artists)
+
+        return list(set(finded_artists))
+
+    def _get_similar_artists(self, release_url):
+        pass
+        return []
+
+    def _get_artist_card_id(self, artist_id_or_card_url):
+        """
+        Возвращает айди карточки артиста по ссылке на эту карточку или айдишке артсита.
+        Либо возвращает None, если карточка не найдена
+
+        :param artist_id_or_card_url:       str or int, ссылка на карточку артиста в ВК
+        :return:                            str or None
+        """
+        # Проверка на тип переменной и выбор соответствующего параметра для метода API
+        if 'vk.com' in artist_id_or_card_url:
+            api_method_params = {'url': artist_id_or_card_url}
+
+        else:
+            api_method_params = {'artist_id': artist_id_or_card_url}
+
+        resp = self._api_response('catalog.getAudioArtist', api_method_params)
+        try:
+            if '{artist_name}' in resp['catalog']['sections'][0]['title']:
+                return None
+            return resp['catalog']['sections'][0]['id']
+        except KeyError:
+            print(resp)
+            return None
+
+    def _pars_artist_card(self, artist_card_item, include_feats=True):
+        """
+        Возвращает дикт с похожими артистами и их айдишками.
+        Артисты берутся из фитов и блока с похожими артистами в карточке основного артиста.
+
+        :return:                        dict, {artist_name, artist_id (or artist_card_url)}
+        """
+        # Если такого ключа нет, то нет карточки артиста
+        if 'artists' not in artist_card_item.keys():
+            return None
+
+        # Достаем инфу об основном артисте переданной карточки артиста
+        card_artist_name = artist_card_item['artists'][0]['name']
+        card_url = artist_card_item['section']['url']
+        finded_artists = {card_artist_name: card_url}
+
+        if include_feats:
+            finded_artists.update(_pars_feats_from_audios(audios=artist_card_item['audios'],
+                                                          main_artist_name=card_artist_name))
+
+        # Поиск блока с похожими артистами (его может не быть)
+        related_artists_block_id = None
+        for block in artist_card_item['section']['blocks']:
+            if 'url' in block.keys() and 'related' in block['url']:
+                related_artists_block_id = block['id']
+
+        if related_artists_block_id:
+            finded_artists.update(self._pars_related_artists_block(related_artists_block_id=related_artists_block_id))
+
+        return finded_artists
+
+    def _pars_related_artists_block(self, related_artists_block_id):
+        """
+        Возвращает дикт с именами и каталожными айдишками артистов из блока похожих артистов в карточке артиста
+
+        :param related_artists_block_id:    str, айди блока похожих артистов
+        :return:                            dict, {artist_name, artist_card_url}
+        """
+        api_method_params = {'block_id': related_artists_block_id}
+        resp = self._api_response('catalog.getBlockItems', api_method_params)
+
+        try:
+            related_artists_ids = {artist['title']: artist['url'] for artist in resp['links']}
+        except KeyError:
+            sleep(uniform(0.4, 0.5))
+            return self._pars_related_artists_block(related_artists_block_id=related_artists_block_id)
+
+        if 'next_from' in resp['block'].keys():
+            api_method_params['start_from'] = resp['block']['next_from']
+            resp = self._api_response('catalog.getBlockItems', api_method_params)
+            # По некст фрому может ничего не вернуться, точнее в таком сулчае вернется error
+            if 'response' in resp.keys():
+                related_artists_ids.update({artist['title']: artist['url'] for artist in resp['links']})
+
+        return related_artists_ids
 
 
 class VkAds:
