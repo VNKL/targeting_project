@@ -5,6 +5,7 @@ from rest_framework.generics import CreateAPIView
 from rest_framework.response import Response
 from django.http import JsonResponse
 from django.core.management import call_command
+from multiprocessing import Process
 
 from musictargeting.api.models import User, Cabinet, Campaign, Ad, Retarget
 from musictargeting.api import serializers
@@ -115,17 +116,18 @@ class CampaignCreateView(views.APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
-        params = {'owner': request.user,
-                  'cabinet_vk_id': request.query_params.get('cabinet_vk_id'),
-                  'release_url': request.query_params.get('release_url'),
-                  'post_text': request.query_params.get('post_text'),
-                  'group_id': request.query_params.get('group_id'),
-                  'budget': request.query_params.get('budget')}
+        params_list = ['cabinet_vk_id', 'release_url', 'post_text', 'group_id', 'budget', 'sex_filter',
+                       'age_from', 'age_to', 'find_related_artists']
+        params = {'owner': request.user}
+        for param in params_list:
+            if request.query_params.get(param):
+                params[param] = request.query_params.get(param)
 
         campaign_settings_serializer = serializers.CampaignSettingsSerializer(data=params)
         if campaign_settings_serializer.is_valid():
             campaign = campaign_settings_serializer.save()
-            call_command('start_campaign', pk=campaign.pk)
+            process = Process(target=call_command, args=('start_campaign',), kwargs={'pk': campaign.pk})
+            process.start()
             return Response({'info': 'campaign is starting, it takes some time'})
         else:
             return Response(campaign_settings_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -288,7 +290,8 @@ class CampaignStartAutomateView(views.APIView):
         serializer = serializers.AutomateSettingsSerializer(data=automate_setting)
         if serializer.is_valid():
             serializer.save()
-            call_command('automate_campaign', **serializer.data)
+            process = Process(target=call_command, args=('automate_campaign',), kwargs=serializer.data)
+            process.start()
             return Response({'info': 'campaign automate is starting, it take some time'})
         else:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

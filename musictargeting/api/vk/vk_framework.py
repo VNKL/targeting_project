@@ -865,9 +865,10 @@ class VkAudio:
 
         mp3_urls = [x['url'] for x in release['track_list']]
         for url in mp3_urls:
-            similars = self._predict_similar_artists(mp3_url=url)
-            if similars:
-                finded_similars.extend(similars)
+            if url:
+                similars = self._predict_similar_artists(mp3_url=url)
+                if similars:
+                    finded_similars.extend(similars)
 
         return finded_similars
 
