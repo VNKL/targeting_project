@@ -75,8 +75,9 @@ class CabinetUpdateView(views.APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
-        self._update_user_ads_cabinets(request)
-        return Response({'info': 'cabinets was update'})
+        cabinets = self._update_user_ads_cabinets(request)
+        serializer = serializers.CabinetSerializer(cabinets, many=True)
+        return Response(serializer.data)
 
     @staticmethod
     def _update_user_ads_cabinets(request):
@@ -90,23 +91,24 @@ class CabinetUpdateView(views.APIView):
         Cabinet.objects.all().filter(owner=user).delete()
 
         # Создание и сохранений новых объектов кабинетов
+        new_cabinets = []
         if ads_cabinets['user_cabinets']:
             for cab in ads_cabinets['user_cabinets']:
-                cabinet = Cabinet(owner=user,
-                                  cabinet_type='user',
-                                  cabinet_name=cab['cabinet_name'],
-                                  cabinet_vk_id=cab['cabinet_id'])
-                cabinet.save()
+                new_cabinets.append(Cabinet(owner=user,
+                                            cabinet_type='user',
+                                            cabinet_name=cab['cabinet_name'],
+                                            cabinet_vk_id=cab['cabinet_id']))
 
         if ads_cabinets['client_cabinets']:
             for cab in ads_cabinets['client_cabinets']:
-                cabinet = Cabinet(owner=user,
-                                  cabinet_type='agency',
-                                  cabinet_name=cab['cabinet_name'],
-                                  cabinet_vk_id=cab['cabinet_id'],
-                                  client_name=cab['client_name'],
-                                  client_vk_id=cab['client_id'])
-                cabinet.save()
+                new_cabinets.append(Cabinet(owner=user,
+                                            cabinet_type='agency',
+                                            cabinet_name=cab['cabinet_name'],
+                                            cabinet_vk_id=cab['cabinet_id'],
+                                            client_name=cab['client_name'],
+                                            client_vk_id=cab['client_id']))
+        cabinets = Cabinet.objects.bulk_create(new_cabinets)
+        return cabinets
 
 
 class CampaignCreateView(views.APIView):
