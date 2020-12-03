@@ -160,6 +160,11 @@ class CampaignUpdateStatsView(views.APIView):
         campaign_vk_id = request.query_params.get('campaign_vk_id')
         if not campaign_vk_id:
             return Response({'detail': 'campaign_vk_id is required'}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            campaign_vk_id = int(campaign_vk_id)
+        except TypeError:
+            return Response({'detail': 'campaign_vk_id must be int'}, status=status.HTTP_400_BAD_REQUEST)
+
         campaign = get_object_or_404(Campaign, owner=request.user, campaign_vk_id=campaign_vk_id)
         campaign = self._update_campaign_stats(campaign, campaign_vk_id, request)
         serializer = serializers.CampaignExtendedSerializer(campaign)
