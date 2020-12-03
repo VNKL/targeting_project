@@ -2,7 +2,7 @@ from datetime import datetime, date, timedelta
 from time import sleep
 
 from musictargeting.api.models import Campaign, Ad
-from musictargeting.api import vk_framework
+from musictargeting.api.vk import vk_framework
 from musictargeting.settings import DEV_PROXY, DEV_RUCAPTCHA_KEY
 
 

@@ -1,14 +1,25 @@
 """ Use Python 3.7 """
 
 import json
+import os
+import re
 import requests
+import warnings
+import numpy as np
+import pickle
 
 from time import sleep
 from random import uniform
 from python_rucaptcha import ImageCaptcha
 from datetime import datetime
+from random import choice
+from musicnn.extractor import extractor
+from sklearn.metrics.pairwise import cosine_similarity
 
 from musictargeting.settings import VK_API_VERSION
+
+
+warnings.filterwarnings('ignore')
 
 
 def _anticaptcha(captcha_img, rucaptcha_key):
@@ -65,6 +76,15 @@ def _get_api_response(url, data, rucaptcha_key, proxy=None, captcha_sid=None, ca
             return None
     else:
         return resp['response']
+
+
+def _generate_random_filename():
+
+    symbols = 'abscdefghijklmnopwxyzABCDEFGHIJKLMNOPWXYZ'
+    filename = ''
+    for _ in range(40):
+        filename += f'{choice(symbols)}'
+    return filename
 
 
 def _get_artist_name(vk_playlist_object):
@@ -127,7 +147,9 @@ def _get_track_list(vk_playlist_audios):
                            'title': _get_release_title(audio),
                            'owner_id': audio['owner_id'],
                            'audio_id': audio['id'],
-                           'access_key': audio['access_key']})
+                           'access_key': audio['access_key'],
+                           'url': audio['url'],
+                           'is_explicit': audio['is_explicit']})
     return track_list
 
 
@@ -428,6 +450,41 @@ def _is_artist_alive(artist_card_item, days_from_last_release):
     return True if days_delta <= days_from_last_release else False
 
 
+def _open_trackspace():
+    try:
+        with open('musictargeting/api/vk/trackspace.pkl', 'rb') as file:
+            trackspace = pickle.load(file)
+    except FileNotFoundError:
+        trackspace = None
+
+    try:
+        with open('musictargeting/api/vk/scaler.pkl', 'rb') as file:
+            scaler = pickle.load(file)
+    except FileNotFoundError:
+        scaler = None
+
+    return trackspace, scaler
+
+
+def decode_mp3_url(url):
+    if '.mp3?' in url:
+        return url
+
+    if url.startswith('https://ps'):
+        re_url = re.compile(
+            r"(https://.+)/.+?/audios/(.+?)/index\.m3u8\?extra=(.+)"
+        )
+        match = re_url.findall(url)[0]
+        return f'{match[0]}/audios/{match[1]}.mp3?extra={match[2]}'
+    else:
+        re_url = re.compile(
+            r'(https://.+)/.+?/(.+?)/index\.m3u8\?extra=(.+)'
+        )
+
+    match = re_url.findall(url)[0]
+    return f'{match[0]}/{match[1]}.mp3?extra={match[2]}'
+
+
 class VkAPI:
 
     def __init__(self, token, rucaptcha_key, proxy=None, batch_count=10, ads_cabinet_id=None, ads_client_id=None):
@@ -698,7 +755,9 @@ class VkAudio:
                                                        'title': str,
                                                        'owner_id': int,
                                                        'audio_id': int,
-                                                       'access_key': str}, ...]}
+                                                       'access_key': str,
+                                                       'url': str,
+                                                       'is_explicit': bool}, ...]}
         """
         # Достаем параметры плейлиста из ссылки
         owner_id, playlist_id, access_key = _get_playlist_params_from_url(playlist_url=playlist_url)
@@ -768,30 +827,86 @@ class VkAudio:
         """
         Возвращает список имен "похожих" артистов
 
-        :param artist_card_url:
-        :param include_nn:
         :return:                    list, [artist_name, ...]
         """
-
         finded_artists = [x for x in list(release['artist_domains'].keys())]
         artist_domains = [f'https://vk.com/artist/{x}' for x in list(release['artist_domains'].values())]
 
         for domain in artist_domains:
-            artist_card_id = self._get_artist_card_id(artist_id_or_card_url=domain)
-            artist_card_item = self._api_response('catalog.getSection', {'section_id': artist_card_id})
-            related_artists = self._pars_artist_card(artist_card_item=artist_card_item)
+            related_artists = self._get_related_artists_from_domain(domain)
             finded_artists.extend(list(related_artists.keys()))
 
         if include_nn:
-            similar_artists = self._get_similar_artists(release_url=None)
-            if similar_artists:
-                finded_artists.extend(similar_artists)
+            similars = self.get_similar_artists(release=release)
+            if similars:
+                similars_domains = []
+                for sim in similars:
+                    similars_domains.extend([f'https://vk.com/artist/{x}' for x in sim['domains']])
+                for domain in similars_domains:
+                    related_artists = self._get_related_artists_from_domain(domain)
+                    finded_artists.extend(list(related_artists.keys()))
 
-        return list(set(finded_artists))
+        finded_artists = list(set(finded_artists))
 
-    def _get_similar_artists(self, release_url):
-        pass
-        return []
+        if len(finded_artists) > 150:
+            return finded_artists[:150]
+
+        return finded_artists
+
+    def _get_related_artists_from_domain(self, domain):
+        artist_card_id = self._get_artist_card_id(artist_id_or_card_url=domain)
+        artist_card_item = self._api_response('catalog.getSection', {'section_id': artist_card_id})
+        related_artists = self._pars_artist_card(artist_card_item=artist_card_item)
+        return related_artists
+
+    def get_similar_artists(self, release):
+
+        finded_similars = []
+
+        mp3_urls = [x['url'] for x in release['track_list']]
+        for url in mp3_urls:
+            similars = self._predict_similar_artists(mp3_url=url)
+            if similars:
+                finded_similars.extend(similars)
+
+        return finded_similars
+
+    def _predict_similar_artists(self, mp3_url):
+
+        trackspace, scaler = _open_trackspace()
+        if not trackspace:
+            return []
+
+        decoded_mp3_url = decode_mp3_url(mp3_url)
+        filename = _generate_random_filename()
+        self._write_mp3_file(decoded_mp3_url, filename)
+
+        taggram, _ = extractor(file_name=f'musictargeting/api/vk/temp/{filename}.mp3',
+                               model='MSD_musicnn', extract_features=False)
+        os.remove(f'musictargeting/api/vk/temp/{filename}.mp3')
+        features = np.mean(taggram, axis=0)
+        vector_1 = np.array(features).reshape(1, -1)
+        vector_1 = scaler.transform(vector_1)[0]
+
+        similars_names = []
+        for track, info in trackspace.items():
+            vector_2 = np.array(info['features']).reshape(1, -1)
+            vector_2 = scaler.transform(vector_2)[0]
+            similarity = cosine_similarity(vector_1.reshape(1, -1), vector_2.reshape(1, -1))[0][0]
+            if similarity > 0.7:
+                artist_names = track.split(' - ')[0].split(', ')
+                similars_names.append({'artist_names': artist_names, 'domains': info['domains']})
+
+        return similars_names
+
+    def _write_mp3_file(self, mp3_url, filename):
+        proxy_dict = {'https': f'https://{self.proxy}'} if self.proxy else None
+        dirs = 'musictargeting/api/vk/temp'
+
+        os.makedirs(dirs, exist_ok=True)
+        with open(f'{dirs}/{filename}.mp3', 'wb') as file:
+            mp3 = requests.get(mp3_url, proxies=proxy_dict).content
+            file.write(mp3)
 
     def _get_artist_card_id(self, artist_id_or_card_url):
         """
@@ -1700,3 +1815,95 @@ class VkArtistCards:
         except KeyError:
             print(resp)
             return None
+
+
+class VkChart:
+
+    def __init__(self, token, rucaptcha_key, proxy=None):
+        """
+        Парсер чарта ВК. Как в виде массива с позициями, исполнителями и названиями треков, так и с возможностью
+        скачивания мр3 файлов.
+
+        :param tokens:  list, токены от вк с правами audio
+        :param proxy:   str, login:pass@ip:port
+        """
+        self.token = token
+        self.chart = None
+        self.rucaptcha_key = rucaptcha_key
+        self.proxy = proxy
+
+    def _api_response(self, method, params=None):
+        """
+        Возвращает ответ от API ВК (None - если ошибка)
+
+        :param method:  str, название метода API ВК
+        :param params:  dict, параметры метода
+        :return:        dict, разобранный из JSON ответ апи ВК (None - если ошибка)
+        """
+        url = f'https://api.vk.com/method/{method}'
+        if params:
+            params.update({'access_token': self.token, 'v': VK_API_VERSION})
+        else:
+            params = {'access_token': self.token, 'v': VK_API_VERSION}
+        return _get_api_response(url=url, data=params, rucaptcha_key=self.rucaptcha_key, proxy=self.proxy)
+
+    def get_chart(self):
+        """
+        Парсит чарт ВК от текущей даты напрямую из ВК
+
+        :return:    dict, {chart_position: {api response about track}}
+        """
+        chart = {}
+        next_from = None
+        for i in range(5):
+            resp = self._get_chart_response(next_from)
+            for n, track in enumerate(resp['block']['audios']):
+                chart_position = n + i * 20 + 1
+                chart[chart_position] = track
+            try:
+                next_from = resp['block']['next_from']
+            except KeyError:
+                pass
+        self.chart = chart
+        return chart
+
+    def download_all_chart_tracks(self, already_downloaded=None):
+        """
+        Скачивает все треки в мр3 из сегодняшнего чарта ВК
+
+        :return:                ничего не возвращает
+        """
+
+        if not self.chart:
+            self.get_chart()
+
+        if not already_downloaded:
+            already_downloaded = []
+
+        for chart_position, track in self.chart.items():
+            track_name = f'{self.chart[chart_position]["artist"]} - {self.chart[chart_position]["title"]}'
+            if track_name not in already_downloaded:
+                audio_id = f'{self.chart[chart_position]["owner_id"]}_{self.chart[chart_position]["id"]}'
+                mp3_url = self._get_mp3_url(audio_id)
+                mp3_url = decode_mp3_url(mp3_url)
+                self._write_mp3_file(mp3_url, track_name)
+
+    def _get_chart_response(self, next_from=None):
+        api_method_params = {'block_id': 'PUlYRhcOWFVqSVhBFw5JBScfCBpaU0kb', 'start_from': next_from}
+        return self._api_response('audio.getCatalogBlockById', api_method_params)
+
+    def _get_mp3_url(self, audio_id):
+        resp = self._api_response('audio.getById', {'audios': audio_id})
+        if resp:
+            return resp[0]['url']
+        else:
+            return None
+
+    def _write_mp3_file(self, mp3_url, filename):
+        proxy_dict = {'https': f'https://{self.proxy}'} if self.proxy else None
+        dirs = 'musictargeting/api/temp'
+
+        os.makedirs(dirs, exist_ok=True)
+        with open(f'{dirs}/{filename}.mp3', 'wb') as file:
+            mp3 = requests.get(mp3_url, proxies=proxy_dict).content
+            file.write(mp3)

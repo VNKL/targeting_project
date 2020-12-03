@@ -1,6 +1,7 @@
 from rest_framework.generics import get_object_or_404
 
-from musictargeting.api import vk_framework, serializers
+from musictargeting.api import serializers
+from musictargeting.api.vk import vk_framework
 from musictargeting.api.models import User, Ad, CampaignSettings, Campaign
 from musictargeting.settings import DEV_RUCAPTCHA_KEY, DEV_PROXY
 

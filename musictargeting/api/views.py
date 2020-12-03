@@ -5,11 +5,10 @@ from rest_framework.generics import CreateAPIView
 from rest_framework.response import Response
 from django.http import JsonResponse
 from django.core.management import call_command
-from multiprocessing import Process
 
 from musictargeting.api.models import User, Cabinet, Campaign, Ad, Retarget
 from musictargeting.api import serializers
-from musictargeting.api import vk_framework
+from musictargeting.api.vk import vk_framework
 from musictargeting.settings import DEV_RUCAPTCHA_KEY, DEV_PROXY
 
 
