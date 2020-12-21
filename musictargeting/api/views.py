@@ -1,6 +1,7 @@
 from django.shortcuts import get_object_or_404, get_list_or_404
 from rest_framework import viewsets, views, status
 from rest_framework import permissions
+from rest_framework.decorators import api_view
 from rest_framework.generics import CreateAPIView
 from rest_framework.response import Response
 from django.http import JsonResponse
@@ -9,6 +10,7 @@ from multiprocessing import Process
 
 from musictargeting.api.models import User, Cabinet, Campaign, Ad, Retarget
 from musictargeting.api import serializers
+from musictargeting.api.serializers import UserSerializer
 from musictargeting.api.vk import vk_framework
 from musictargeting.settings import DEV_RUCAPTCHA_KEY, DEV_PROXY
 
@@ -16,6 +18,16 @@ from musictargeting.settings import DEV_RUCAPTCHA_KEY, DEV_PROXY
 def api_index_view(request):
     return JsonResponse({'detail': 'This is api root page. Use existing methods after api/'},
                         status=status.HTTP_405_METHOD_NOT_ALLOWED)
+
+
+@api_view(['GET'])
+def current_user(request):
+    """
+    Determine the current user by their token, and return their data
+    """
+
+    serializer = UserSerializer(request.user)
+    return Response(serializer.data)
 
 
 class UserViewSet(viewsets.ModelViewSet):

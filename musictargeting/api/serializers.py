@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from rest_framework_jwt.settings import api_settings
 
 from musictargeting.api.models import User, Cabinet, Campaign, Ad, CampaignSettings, Retarget
 
@@ -55,19 +56,38 @@ class UserSerializer(serializers.ModelSerializer):
 
 
 class UserCreateSerializer(serializers.ModelSerializer):
+    token = serializers.SerializerMethodField()
     password = serializers.CharField(write_only=True)
 
+    @staticmethod
+    def get_token(obj):
+        jwt_payload_handler = api_settings.JWT_PAYLOAD_HANDLER
+        jwt_encode_handler = api_settings.JWT_ENCODE_HANDLER
+
+        payload = jwt_payload_handler(obj)
+        token = jwt_encode_handler(payload)
+        return token
+
     def create(self, validated_data):
-        user = User.objects.create(username=validated_data['username'],
-                                   vk_user_id=validated_data['vk_user_id'],
-                                   vk_token=validated_data['vk_token'])
+        # vk_user_id=None
+        # if 'vk_user_id' in validated_data.keys():
+        #     vk_user_id = validated_data['vk_user_id']
+        #
+        # vk_token = None
+        # if 'vk_token' in validated_data.keys():
+        #     vk_token = validated_data['vk_token']
+        #
+        # user = User.objects.create(username=validated_data['username'],
+        #                            vk_user_id=vk_user_id,
+        #                            vk_token=vk_token)
+        user = User.objects.create(**validated_data)
         user.set_password(validated_data['password'])
         user.save()
         return user
 
     class Meta:
         model = User
-        fields = 'username', 'vk_user_id', 'vk_token', 'id', 'password'
+        fields = 'username', 'vk_user_id', 'vk_token', 'id', 'password', 'token', 'email'
 
 
 class UserExtendedSerializer(serializers.ModelSerializer):

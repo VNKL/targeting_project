@@ -5,7 +5,6 @@ import os
 import re
 import requests
 import warnings
-import numpy as np
 import pickle
 
 from time import sleep
@@ -13,13 +12,14 @@ from random import uniform
 from python_rucaptcha import ImageCaptcha
 from datetime import datetime
 from random import choice
-from musicnn.extractor import extractor
-from sklearn.metrics.pairwise import cosine_similarity
+from fake_useragent import UserAgent
 
 from musictargeting.settings import VK_API_VERSION
 
 
 warnings.filterwarnings('ignore')
+
+USER_AGENT = UserAgent()
 
 
 def _anticaptcha(captcha_img, rucaptcha_key):
@@ -49,6 +49,11 @@ def _get_api_response(url, data, rucaptcha_key, proxy=None, captcha_sid=None, ca
     :param captcha_key:     str, разгаданная капча
     :return:                dict, разобранный из JSON ответ апи ВК (None - если ошибка в ответе)
     """
+    if 'audio' in url.lower():
+        sleep(uniform(1.5, 1.7))
+    else:
+        sleep(uniform(0.4, 0.6))
+
     if proxy:
         proxy_dict = {'https': f'https://{proxy}'}
     else:
@@ -60,7 +65,9 @@ def _get_api_response(url, data, rucaptcha_key, proxy=None, captcha_sid=None, ca
         else:
             data = {'captcha_sid': captcha_sid, 'captcha_key': captcha_key}
 
-    resp = requests.post(url, data, proxies=proxy_dict).json()
+    u_agent = USER_AGENT.random
+
+    resp = requests.post(url, data, proxies=proxy_dict, headers={'User-Agent': u_agent}).json()
 
     if 'error' in resp.keys():
         if resp['error']['error_msg'] == 'Captcha needed':
@@ -874,29 +881,7 @@ class VkAudio:
 
     def _predict_similar_artists(self, mp3_url):
 
-        trackspace, scaler = _open_trackspace()
-        if not trackspace:
-            return []
-
-        decoded_mp3_url = decode_mp3_url(mp3_url)
-        filename = _generate_random_filename()
-        self._write_mp3_file(decoded_mp3_url, filename)
-
-        taggram, _ = extractor(file_name=f'musictargeting/api/vk/temp/{filename}.mp3',
-                               model='MSD_musicnn', extract_features=False)
-        os.remove(f'musictargeting/api/vk/temp/{filename}.mp3')
-        features = np.mean(taggram, axis=0)
-        vector_1 = np.array(features).reshape(1, -1)
-        vector_1 = scaler.transform(vector_1)[0]
-
-        similars_names = []
-        for track, info in trackspace.items():
-            vector_2 = np.array(info['features']).reshape(1, -1)
-            vector_2 = scaler.transform(vector_2)[0]
-            similarity = cosine_similarity(vector_1.reshape(1, -1), vector_2.reshape(1, -1))[0][0]
-            if similarity > 0.7:
-                artist_names = track.split(' - ')[0].split(', ')
-                similars_names.append({'artist_names': artist_names, 'domains': info['domains']})
+        similars_names = None
 
         return similars_names
 

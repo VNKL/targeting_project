@@ -4,8 +4,8 @@ from django.db import models
 
 class User(DjangoUser):
 
-    vk_user_id = models.IntegerField()
-    vk_token = models.CharField(max_length=100)
+    vk_user_id = models.IntegerField(blank=True, null=True)
+    vk_token = models.CharField(max_length=100, blank=True, null=True)
 
     def __str__(self):
         return f'User "{self.username}"'

@@ -1,4 +1,5 @@
 from django.urls import path
+from rest_framework_jwt.views import obtain_jwt_token
 
 from musictargeting.api import views as api_views
 
@@ -9,6 +10,7 @@ urlpatterns = [
 
     path('user.create', api_views.UserCreateView.as_view()),
     path('user.get', api_views.UserView.as_view()),                         # extended
+    path('user.auth', obtain_jwt_token),
 
     path('cabinets.get', api_views.CabinetListView.as_view()),              # extended
     path('cabinets.update', api_views.CabinetUpdateView.as_view()),
