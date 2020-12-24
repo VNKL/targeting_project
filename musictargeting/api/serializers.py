@@ -15,8 +15,9 @@ class CampaignSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Campaign
-        fields = 'campaign_name', 'campaign_vk_id', 'status', 'campaign_budget', 'spent', 'listens', 'cpl', \
-                 'reach', 'release_cover_url', 'create_datetime'
+        fields = 'cabinet_vk_id', 'client_vk_id', 'campaign_name', 'campaign_vk_id', 'status', \
+                 'campaign_budget', 'spent', 'listens', 'cpl', 'reach', 'cpm', 'clicks', 'cpc', \
+                 'subscribes', 'cps', 'release_cover_url', 'create_datetime'
 
 
 class CampaignExtendedSerializer(serializers.ModelSerializer):
