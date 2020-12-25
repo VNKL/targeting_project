@@ -391,6 +391,7 @@ class RetargetUpdateView(views.APIView):
 
     @staticmethod
     def _update_cabinet_retarget(cabinet, user):
+        Retarget.objects.filter(cabinet=cabinet).delete()
         vk = vk_framework.VkAds(token=user.vk_token,
                                 cabinet_id=cabinet.cabinet_vk_id, client_id=cabinet.client_vk_id,
                                 rucaptcha_key=DEV_RUCAPTCHA_KEY, proxy=DEV_PROXY)
