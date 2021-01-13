@@ -49,10 +49,7 @@ def _get_api_response(url, data, rucaptcha_key, proxy=None, captcha_sid=None, ca
     :param captcha_key:     str, разгаданная капча
     :return:                dict, разобранный из JSON ответ апи ВК (None - если ошибка в ответе)
     """
-    if 'audio' in url.lower():
-        sleep(uniform(1.5, 1.7))
-    else:
-        sleep(uniform(0.4, 0.6))
+    sleep(uniform(0.4, 0.6))
 
     if proxy:
         proxy_dict = {'https': f'https://{proxy}'}
@@ -190,6 +187,24 @@ def _code_for_create_playlists(batch, group_id, playlist_name):
     code = 'return ['
     for _ in range(batch):
         tmp = 'API.audio.createPlaylist({owner_id: -' + str(group_id) + ', title: "' + str(playlist_name) + '"}), '
+        code += tmp
+    code = code[:-2]
+    code += '];'
+
+    return code
+
+
+def _code_for_get_chart_albums(batch):
+
+    code = 'return ['
+    for b in batch:
+        track = b[1]
+        album_id = track['album']['id']
+        album_owner_id = track['album']['owner_id']
+        album_access_key = track['album']['access_key']
+        tmp = 'API.audio.getPlaylistById({owner_id: ' + str(album_owner_id) + ', ' \
+                                         'playlist_id: ' + str(album_id) + ', ' \
+                                         'access_key: "' + str(album_access_key) + '"}), '
         code += tmp
     code = code[:-2]
     code += '];'
@@ -596,7 +611,7 @@ class VkAPI:
         for name, domain in release['artist_domains'].items():
             artist_names.append(name)
             if find_related_artists:
-                related_artists = self.audio.get_related_artists(release=release, include_nn=True)
+                related_artists = self.audio.get_related_artists(release=release, include_genres=True)
                 artist_names.extend(related_artists)
 
         return list(set(artist_names))
@@ -780,6 +795,7 @@ class VkAudio:
         # Парсим объект плейлиста и объекты аудиозаписей в объект релиза
         release = {
             'release_type': 'single' if vk_playlist_object['count'] == 1 else 'album',
+            'genres': [x['name'] for x in vk_playlist_object['genres']],
             'artist_name': _get_artist_name(vk_playlist_object),
             'artist_domains': _get_artist_domains(vk_playlist_audios),
             'title': _get_release_title(vk_playlist_object),
@@ -830,28 +846,36 @@ class VkAudio:
 
         return duplicate_playlist_urls
 
-    def get_related_artists(self, release, include_nn=False):
+    def get_related_artists(self, release, include_genres=False, related_in_genres=False):
         """
         Возвращает список имен "похожих" артистов
 
+        :param release:             dict, объект релиза
+        :param include_genres:      bool, берет совпадения по указанным жанрам треков из актуального чарта ВК
+        :param related_in_genres:   bool, берет "похожих" артистов на артистов из жанровых совпадений в чарте
         :return:                    list, [artist_name, ...]
         """
         finded_artists = [x for x in list(release['artist_domains'].keys())]
         artist_domains = [f'https://vk.com/artist/{x}' for x in list(release['artist_domains'].values())]
 
         for domain in artist_domains:
-            related_artists = self._get_related_artists_from_domain(domain)
+            related_artists = self._get_related_artists_from_domain(domain, include_feats=True)
             finded_artists.extend(list(related_artists.keys()))
 
-        if include_nn:
+        if include_genres:
             similars = self.get_similar_artists(release=release)
             if similars:
-                similars_domains = []
-                for sim in similars:
-                    similars_domains.extend([f'https://vk.com/artist/{x}' for x in sim['domains']])
-                for domain in similars_domains:
-                    related_artists = self._get_related_artists_from_domain(domain)
-                    finded_artists.extend(list(related_artists.keys()))
+                if related_in_genres:
+                    similars_domains = []
+                    for sim in similars:
+                        similars_domains.extend([f'https://vk.com/artist/{x}' for x in sim['domains']])
+                    for domain in similars_domains:
+                        related_artists = self._get_related_artists_from_domain(domain)
+                        if related_artists:
+                            finded_artists.extend(list(related_artists.keys()))
+                else:
+                    for sim in similars:
+                        finded_artists.extend(sim['names'])
 
         finded_artists = list(set(finded_artists))
 
@@ -860,30 +884,33 @@ class VkAudio:
 
         return finded_artists
 
-    def _get_related_artists_from_domain(self, domain):
+    def _get_related_artists_from_domain(self, domain, include_feats=False):
         artist_card_id = self._get_artist_card_id(artist_id_or_card_url=domain)
         artist_card_item = self._api_response('catalog.getSection', {'section_id': artist_card_id})
-        related_artists = self._pars_artist_card(artist_card_item=artist_card_item)
+        related_artists = self._pars_artist_card(artist_card_item=artist_card_item, include_feats=include_feats)
         return related_artists
 
     def get_similar_artists(self, release):
+        """
+        Возвращает совпадения по жанрам, которые указаны в релизе и треках в актуальном чарте ВК
 
-        finded_similars = []
+        :param release:     dict, объект релиза
+        :return:            list, [{'names': [str, str, ...], 'domains': [str, str, ...]}, {...}, ...]
+        """
+        similar_artists = []
+        release_genres = release['genres']
+        chart = VkChart(token=self.token, rucaptcha_key=self.rucaptcha_key, proxy=self.proxy).get_chart(extended=True)
+        for _, track in chart.items():
+            check = [True if x in release_genres else False for x in track['genres']]
+            if any(check):
+                artists_names = [x['name'] for x in track['main_artists']]
+                artists_domains = [x['domain'] for x in track['main_artists']]
+                if 'featured_artists' in track.keys():
+                    artists_names.extend([x['name'] for x in track['featured_artists']])
+                    artists_domains.extend([x['domain'] for x in track['featured_artists']])
+                similar_artists.append({'names': artists_names, 'domains': artists_domains})
 
-        mp3_urls = [x['url'] for x in release['track_list']]
-        for url in mp3_urls:
-            if url:
-                similars = self._predict_similar_artists(mp3_url=url)
-                if similars:
-                    finded_similars.extend(similars)
-
-        return finded_similars
-
-    def _predict_similar_artists(self, mp3_url):
-
-        similars_names = None
-
-        return similars_names
+        return similar_artists
 
     def _write_mp3_file(self, mp3_url, filename):
         proxy_dict = {'https': f'https://{self.proxy}'} if self.proxy else None
@@ -1810,11 +1837,10 @@ class VkChart:
         Парсер чарта ВК. Как в виде массива с позициями, исполнителями и названиями треков, так и с возможностью
         скачивания мр3 файлов.
 
-        :param tokens:  list, токены от вк с правами audio
+        :param token:   str, токен от вк с правами audio
         :param proxy:   str, login:pass@ip:port
         """
         self.token = token
-        self.chart = None
         self.rucaptcha_key = rucaptcha_key
         self.proxy = proxy
 
@@ -1833,7 +1859,7 @@ class VkChart:
             params = {'access_token': self.token, 'v': VK_API_VERSION}
         return _get_api_response(url=url, data=params, rucaptcha_key=self.rucaptcha_key, proxy=self.proxy)
 
-    def get_chart(self):
+    def get_chart(self, extended=False):
         """
         Парсит чарт ВК от текущей даты напрямую из ВК
 
@@ -1850,46 +1876,36 @@ class VkChart:
                 next_from = resp['block']['next_from']
             except KeyError:
                 pass
-        self.chart = chart
+
+        if extended:
+            return self._extend_chart_tracks_info(chart)
+
         return chart
 
-    def download_all_chart_tracks(self, already_downloaded=None):
-        """
-        Скачивает все треки в мр3 из сегодняшнего чарта ВК
-
-        :return:                ничего не возвращает
-        """
-
-        if not self.chart:
-            self.get_chart()
-
-        if not already_downloaded:
-            already_downloaded = []
-
-        for chart_position, track in self.chart.items():
-            track_name = f'{self.chart[chart_position]["artist"]} - {self.chart[chart_position]["title"]}'
-            if track_name not in already_downloaded:
-                audio_id = f'{self.chart[chart_position]["owner_id"]}_{self.chart[chart_position]["id"]}'
-                mp3_url = self._get_mp3_url(audio_id)
-                mp3_url = decode_mp3_url(mp3_url)
-                self._write_mp3_file(mp3_url, track_name)
-
     def _get_chart_response(self, next_from=None):
-        api_method_params = {'block_id': 'PUlYRhcOWFVqSVhBFw5JBScfCBpaU0kb', 'start_from': next_from}
+        api_method_params = {'block_id': 'PUlYRhcOWFVqSVhBFw5JBScfCBpaU0kb', 'start_from': next_from, 'extended': 1}
         return self._api_response('audio.getCatalogBlockById', api_method_params)
 
-    def _get_mp3_url(self, audio_id):
-        resp = self._api_response('audio.getById', {'audios': audio_id})
-        if resp:
-            return resp[0]['url']
-        else:
-            return None
+    def _extend_chart_tracks_info(self, chart):
 
-    def _write_mp3_file(self, mp3_url, filename):
-        proxy_dict = {'https': f'https://{self.proxy}'} if self.proxy else None
-        dirs = 'musictargeting/api/temp'
+        items_in_batch = 25
+        extended_chart = {}
+        chart_list = [[k, v] for k, v in chart.items()]
+        for i in range(len(chart_list))[0: -1: items_in_batch]:
+            batch = chart_list[i: i+items_in_batch]
+            code = _code_for_get_chart_albums(batch)
+            batch_resp = self._api_response('execute', {'code': code})
+            extended_chart_batch = self._compile_extended_chart_items(batch, batch_resp)
+            extended_chart.update(extended_chart_batch)
+        return extended_chart
 
-        os.makedirs(dirs, exist_ok=True)
-        with open(f'{dirs}/{filename}.mp3', 'wb') as file:
-            mp3 = requests.get(mp3_url, proxies=proxy_dict).content
-            file.write(mp3)
+    @staticmethod
+    def _compile_extended_chart_items(batch, batch_resp):
+
+        compiled = {}
+        for n, track in enumerate(batch):
+            compiled[track[0]] = track[1]
+            if batch_resp:
+                genres = [x['name'] for x in batch_resp[n]['genres']]
+                compiled[track[0]]['genres'] = genres
+        return compiled
